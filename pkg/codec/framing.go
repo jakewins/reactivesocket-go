@@ -7,7 +7,7 @@ type FrameDecoder struct {
 }
 
 func (d *FrameDecoder) Read(target *Frame) error {
-
+	return nil
 }
 
 type FrameEncoder struct {
@@ -19,7 +19,7 @@ func (self *FrameEncoder) Write(frame *Frame) error {
 }
 
 type Frame struct {
-	buf []byte
+	Buf []byte
 }
 
 func (f *Frame) Data() []byte {
