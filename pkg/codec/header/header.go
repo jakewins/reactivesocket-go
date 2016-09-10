@@ -91,3 +91,6 @@ func FrameLength(b []byte) int {
 func FrameType(b []byte) uint16 {
 	return Uint16(b, typeFieldOffset)
 }
+func StreamID(b []byte) uint32 {
+	return Uint32(b, streamIdFieldOffset)
+}

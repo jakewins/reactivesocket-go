@@ -31,6 +31,10 @@ func (f *Frame) Type() uint16 {
 	return header.FrameType(f.Buf)
 }
 
+func (f *Frame) StreamID() uint32 {
+	return header.StreamID(f.Buf)
+}
+
 func (f *Frame) Data() []byte {
 	dataLength := f.dataLength()
 	dataOffset := f.dataOffset()
@@ -41,7 +45,12 @@ func (f *Frame) Data() []byte {
 }
 
 func (f *Frame) Metadata() []byte {
-	return nil
+	metadataLength := max(0, f.metadataFieldLength() - header.SizeOfInt)
+	metadataOffset := f.payloadOffset() + header.SizeOfInt
+	if 0 == metadataLength {
+		return nil
+	}
+	return f.Buf[metadataOffset:metadataOffset+metadataLength]
 }
 
 func (f *Frame) dataLength() int {
@@ -69,4 +78,11 @@ func (f *Frame) metadataFieldLength() int {
 	}
 
 	return int(header.Uint32(f.Buf, f.payloadOffset()))
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/codec/setup"
 	"bytes"
 	"github.com/jakewins/reactivesocket-go/pkg/codec"
+	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
 )
 
 func TestSetupFrameEncoding(t *testing.T) {
@@ -38,8 +39,18 @@ func TestSetupFrameEncoding(t *testing.T) {
 		t.Errorf("Expected data mime type to be %s, found %s", dataMime, setup.DataMimeType(buf))
 	}
 
+	if frame.Type() != header.FTSetup {
+		t.Errorf("Expected type to be %d, found %d", header.FTSetup, frame.Type())
+	}
+	if frame.StreamID() != 0 {
+		t.Errorf("Expected stream id to be 0, found %d", frame.StreamID())
+	}
+
 	if !bytes.Equal(frame.Data(), data) {
 		t.Errorf("Expected frame data to be `% x` but found `% x`", data, frame.Data())
+	}
+	if !bytes.Equal(frame.Metadata(), metadata) {
+		t.Errorf("Expected frame metadata to be `% x` but found `% x`", metadata, frame.Metadata())
 	}
 }
 
