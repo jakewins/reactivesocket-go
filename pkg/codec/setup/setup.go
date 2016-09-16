@@ -18,17 +18,28 @@ const (
 	metadataMimeTypeLengthOffset = maxLifetimeFieldOffset + sizeOfInt
 )
 
-func NewSetupFrame(flags uint16, keepaliveInterval, maxLifetime uint32,
-                   metadataMimeType, dataMimeType string,
-                   metadata, data []byte) []byte {
-	frameLength := header.ComputeFrameLength(metadataMimeType, dataMimeType, metadata, data)
-	buf := make([]byte, frameLength)
+
+func computeFrameLength(metadataMimeType, dataMimeType string, metadata, data []byte) int {
+	length := header.ComputeLength(len(metadata), len(data))
+	length += sizeOfInt * 3
+	length += 1 + len(metadataMimeType)
+	length += 1 + len(dataMimeType)
+	return length
+}
+
+func Encode(bufPtr *[]byte, flags uint16, keepaliveInterval, maxLifetime uint32,
+						metadataMimeType, dataMimeType string,
+						metadata, data []byte) {
+	frameLength := computeFrameLength(metadataMimeType, dataMimeType, metadata, data)
+
+	header.EnsureCapacity(bufPtr, frameLength)
+	buf := *bufPtr
 
 	if len(metadata) > 0 {
 		flags |= header.FlagHasMetadata
 	}
 
-	header.EncodeHeader(buf, frameLength, flags, header.FTSetup, 0)
+	header.EncodeHeader(buf, uint32(frameLength), flags, header.FTSetup, 0)
 	header.PutUint32(buf, versionFieldOffset, currentVersion)
 	header.PutUint32(buf, keepaliveIntervalFieldOffset, keepaliveInterval)
 	header.PutUint32(buf, maxLifetimeFieldOffset, maxLifetime)
@@ -39,8 +50,6 @@ func NewSetupFrame(flags uint16, keepaliveInterval, maxLifetime uint32,
 	offset += header.PutMimeType(buf, offset, dataMimeType)
 
 	if flags & header.FlagHasMetadata != 0 {
-		// TODO: Why are we adding sizeOfInt here; this follows what the Java code does, and I'm sure it's fine and well,
-		// but I want to understand why we include this size here, isn't it redundant? Need to check the spec
 		header.PutUint32(buf, offset, uint32(len(metadata) + sizeOfInt))
 		offset += sizeOfInt
 		copy(buf[offset:offset+len(metadata)], metadata)
@@ -50,8 +59,6 @@ func NewSetupFrame(flags uint16, keepaliveInterval, maxLifetime uint32,
 	if len(data) > 0 {
 		copy(buf[offset:], data)
 	}
-
-	return buf
 }
 
 func Flags(b []byte) uint16 {
@@ -77,7 +84,6 @@ func MetadataMimeType(b []byte) string {
 func DataMimeType(b []byte) string {
 	offset := int(metadataMimeTypeLengthOffset)
 	offset += 1 + int(b[offset])
-	// TODO: f.Buf is a slice.. I think. But in any case; make sure this is not freaking copying the whole frame
 	return header.MimeType(b, offset)
 }
 

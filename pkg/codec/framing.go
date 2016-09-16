@@ -8,23 +8,44 @@ import (
 )
 
 type FrameDecoder struct {
-	source *io.Reader
+	Source io.Reader
 }
 
 func (d *FrameDecoder) Read(target *Frame) error {
+	frameSizeSlice := target.Buf[:header.SizeOfInt]
+	_, err := io.ReadFull(d.Source, frameSizeSlice)
+	if err != nil {
+		return err
+	}
+
+	frameLength := header.FrameLength(target.Buf)
+	header.EnsureCapacity(&target.Buf, frameLength)
+
+	restOfFrameSlice := target.Buf[header.SizeOfInt:frameLength]
+	_, err = io.ReadFull(d.Source, restOfFrameSlice)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 type FrameEncoder struct {
-	sink *io.Writer
+	Sink io.Writer
 }
 
 func (self *FrameEncoder) Write(frame *Frame) error {
-	return nil
+	_, err := self.Sink.Write(frame.FrameData())
+	return err
 }
 
 type Frame struct {
 	Buf []byte
+}
+
+// Return the raw frame data, including header
+func (f *Frame) FrameData() []byte {
+	return f.Buf[:header.FrameLength(f.Buf)]
 }
 
 func (f *Frame) Type() uint16 {
@@ -85,4 +106,12 @@ func max(x, y int) int {
 		return x
 	}
 	return y
+}
+
+
+func SetupFrame(target *Frame, flags uint16, keepaliveInterval, maxLifetime uint32,
+								metadataMimeType, dataMimeType string,
+								metadata, data []byte) {
+	setup.Encode(&target.Buf, flags, keepaliveInterval, maxLifetime, metadataMimeType,
+		dataMimeType, metadata, data)
 }
