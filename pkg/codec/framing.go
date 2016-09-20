@@ -12,13 +12,10 @@ type FrameDecoder struct {
 }
 
 func (d *FrameDecoder) Read(target *Frame) error {
-	frameSizeSlice := target.Buf[:header.SizeOfInt]
-	_, err := io.ReadFull(d.Source, frameSizeSlice)
+	frameLength, err := d.readFrameLength(target)
 	if err != nil {
 		return err
 	}
-
-	frameLength := header.FrameLength(target.Buf)
 	header.EnsureCapacity(&target.Buf, frameLength)
 
 	restOfFrameSlice := target.Buf[header.SizeOfInt:frameLength]
@@ -28,6 +25,18 @@ func (d *FrameDecoder) Read(target *Frame) error {
 	}
 
 	return nil
+}
+
+func (d *FrameDecoder) readFrameLength(target *Frame) (int, error) {
+	header.EnsureCapacity(&target.Buf, header.SizeOfInt)
+	frameSizeSlice := target.Buf[:header.SizeOfInt]
+
+	_, err := io.ReadFull(d.Source, frameSizeSlice)
+	if err != nil {
+		return 0, err
+	}
+
+	return header.FrameLength(target.Buf), nil
 }
 
 type FrameEncoder struct {

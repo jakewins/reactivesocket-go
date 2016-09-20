@@ -3,7 +3,6 @@ package codec_test
 import (
 	"testing"
 	"github.com/jakewins/reactivesocket-go/pkg/codec"
-	"io"
 	"bytes"
 )
 
@@ -18,15 +17,14 @@ func TestDecodeFrame(t *testing.T) {
 		buffer := &bytes.Buffer{}
 		encoder := codec.FrameEncoder{buffer}
 		decoder := codec.FrameDecoder{buffer}
-		frame := &codec.Frame{}
-		codec.SetupFrame(frame, 0, 60, 60, "test/test+meta", "test/test+data", []byte{}, payload)
+		writeFrame, readFrame := &codec.Frame{}, &codec.Frame{}
+		codec.SetupFrame(writeFrame, 0, 60, 60, "test/test+meta", "test/test+data", []byte{}, payload)
 
-		encoder.Write(frame)
-		buffer.Next()
-		decoder.Read(frame)
+		encoder.Write(writeFrame)
+		decoder.Read(readFrame)
 
-		if !bytes.Equal(frame.Data(), payload) {
-			t.Errorf("Expected decoded payload to be % x, found % x", payload, frame.Data())
+		if !bytes.Equal(readFrame.Data(), payload) {
+			t.Errorf("Expected decoded payload to be % x, found % x", payload, readFrame.Data())
 		}
 	}
 }
