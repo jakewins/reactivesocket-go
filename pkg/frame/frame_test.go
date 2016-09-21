@@ -16,8 +16,8 @@ var payloads = [][]byte{
 func TestDecodeFrame(t *testing.T) {
 	for _, payload := range payloads  {
 		buffer := &bytes.Buffer{}
-		encoder := frame.FrameEncoder{buffer}
-		decoder := frame.FrameDecoder{buffer}
+		encoder := frame.NewFrameEncoder(buffer)
+		decoder := frame.NewFrameDecoder(buffer)
 		writeFrame, readFrame := &frame.Frame{}, &frame.Frame{}
 		setup.Encode(writeFrame, 0, 60, 60, "test/test+meta", "test/test+data", []byte{}, payload)
 

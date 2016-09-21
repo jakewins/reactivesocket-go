@@ -67,7 +67,7 @@ func (f *Frame) metadataFieldLength() int {
 }
 
 type FrameDecoder struct {
-	Source io.Reader
+	source io.Reader
 }
 
 func (d *FrameDecoder) Read(target *Frame) error {
@@ -77,8 +77,7 @@ func (d *FrameDecoder) Read(target *Frame) error {
 	}
 	header.ResizeSlice(&target.Buf, frameLength)
 
-	restOfFrameSlice := target.Buf[header.SizeOfInt:frameLength]
-	_, err = io.ReadFull(d.Source, restOfFrameSlice)
+	_, err = io.ReadFull(d.source, target.Buf)
 	if err != nil {
 		return err
 	}
@@ -90,7 +89,7 @@ func (d *FrameDecoder) readFrameLength(target *Frame) (int, error) {
 	header.ResizeSlice(&target.Buf, header.SizeOfInt)
 	frameSizeSlice := target.Buf[:header.SizeOfInt]
 
-	_, err := io.ReadFull(d.Source, frameSizeSlice)
+	_, err := io.ReadFull(d.source, frameSizeSlice)
 	if err != nil {
 		return 0, err
 	}
@@ -99,16 +98,24 @@ func (d *FrameDecoder) readFrameLength(target *Frame) (int, error) {
 	return frameLength, nil
 }
 
+func NewFrameDecoder(source io.Reader) *FrameDecoder {
+	return &FrameDecoder{source}
+}
+
 type FrameEncoder struct {
-	Sink io.Writer
+	sink io.Writer
 	frameLengthScratch []byte
+}
+
+func NewFrameEncoder(sink io.Writer) *FrameEncoder {
+	return &FrameEncoder{sink, make([]byte, 4)}
 }
 
 func (e *FrameEncoder) Write(frame *Frame) error {
 	if err := e.writeFrameLength(frame); err != nil {
 		return err
 	}
-	_, err := e.Sink.Write(frame.Buf)
+	_, err := e.sink.Write(frame.Buf)
 	return err
 }
 
@@ -119,7 +126,7 @@ func (e *FrameEncoder) writeFrameLength(frame *Frame) error {
 	frameLength := uint32(len(frame.Buf) + header.SizeOfInt)
 	header.PutUint32(e.frameLengthScratch, 0, frameLength)
 
-	_, err := e.Sink.Write(e.frameLengthScratch)
+	_, err := e.sink.Write(e.frameLengthScratch)
 	return err
 }
 
