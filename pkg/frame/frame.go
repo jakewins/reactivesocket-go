@@ -9,12 +9,8 @@ import (
 )
 
 type Frame struct {
+	// This is a slice that is sized to fit the current frame
 	Buf []byte
-}
-
-// Return the raw frame data, including header
-func (f *Frame) FrameData() []byte {
-	return f.Buf[:header.FrameLength(f.Buf)]
 }
 
 func (f *Frame) Type() uint16 {
@@ -107,7 +103,7 @@ type FrameEncoder struct {
 }
 
 func (self *FrameEncoder) Write(frame *Frame) error {
-	_, err := self.Sink.Write(frame.FrameData())
+	_, err := self.Sink.Write(frame.Buf)
 	return err
 }
 
