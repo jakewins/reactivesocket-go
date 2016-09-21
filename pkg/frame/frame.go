@@ -1,52 +1,12 @@
-package codec
+package frame
+
 
 import (
 	"io"
+	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/codec/setup"
-	"fmt"
 )
-
-type FrameDecoder struct {
-	Source io.Reader
-}
-
-func (d *FrameDecoder) Read(target *Frame) error {
-	frameLength, err := d.readFrameLength(target)
-	if err != nil {
-		return err
-	}
-	header.EnsureCapacity(&target.Buf, frameLength)
-
-	restOfFrameSlice := target.Buf[header.SizeOfInt:frameLength]
-	_, err = io.ReadFull(d.Source, restOfFrameSlice)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (d *FrameDecoder) readFrameLength(target *Frame) (int, error) {
-	header.EnsureCapacity(&target.Buf, header.SizeOfInt)
-	frameSizeSlice := target.Buf[:header.SizeOfInt]
-
-	_, err := io.ReadFull(d.Source, frameSizeSlice)
-	if err != nil {
-		return 0, err
-	}
-
-	return header.FrameLength(target.Buf), nil
-}
-
-type FrameEncoder struct {
-	Sink io.Writer
-}
-
-func (self *FrameEncoder) Write(frame *Frame) error {
-	_, err := self.Sink.Write(frame.FrameData())
-	return err
-}
 
 type Frame struct {
 	Buf []byte
@@ -110,17 +70,50 @@ func (f *Frame) metadataFieldLength() int {
 	return int(header.Uint32(f.Buf, f.payloadOffset()))
 }
 
+type FrameDecoder struct {
+	Source io.Reader
+}
+
+func (d *FrameDecoder) Read(target *Frame) error {
+	frameLength, err := d.readFrameLength(target)
+	if err != nil {
+		return err
+	}
+	header.EnsureCapacity(&target.Buf, frameLength)
+
+	restOfFrameSlice := target.Buf[header.SizeOfInt:frameLength]
+	_, err = io.ReadFull(d.Source, restOfFrameSlice)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *FrameDecoder) readFrameLength(target *Frame) (int, error) {
+	header.EnsureCapacity(&target.Buf, header.SizeOfInt)
+	frameSizeSlice := target.Buf[:header.SizeOfInt]
+
+	_, err := io.ReadFull(d.Source, frameSizeSlice)
+	if err != nil {
+		return 0, err
+	}
+
+	return header.FrameLength(target.Buf), nil
+}
+
+type FrameEncoder struct {
+	Sink io.Writer
+}
+
+func (self *FrameEncoder) Write(frame *Frame) error {
+	_, err := self.Sink.Write(frame.FrameData())
+	return err
+}
+
 func max(x, y int) int {
 	if x > y {
 		return x
 	}
 	return y
-}
-
-
-func SetupFrame(target *Frame, flags uint16, keepaliveInterval, maxLifetime uint32,
-								metadataMimeType, dataMimeType string,
-								metadata, data []byte) {
-	setup.Encode(&target.Buf, flags, keepaliveInterval, maxLifetime, metadataMimeType,
-		dataMimeType, metadata, data)
 }
