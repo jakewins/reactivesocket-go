@@ -32,7 +32,7 @@ func Encode(bufPtr *[]byte, flags uint16, keepaliveInterval, maxLifetime uint32,
 						metadata, data []byte) {
 	frameLength := computeFrameLength(metadataMimeType, dataMimeType, metadata, data)
 
-	header.EnsureCapacity(bufPtr, frameLength)
+	header.ResizeSlice(bufPtr, frameLength)
 	buf := *bufPtr
 
 	if len(metadata) > 0 {

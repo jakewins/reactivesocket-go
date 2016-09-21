@@ -91,18 +91,17 @@ func Uint32(b []byte, offset int) uint32 {
 
 // Ensure the given pointer refers to a slice with at least the specified capacity,
 // allocating a new underlying array for the slice to point to if not
-// TODO: Isn't this exactly what the stdlib Buffer type does?
-func EnsureCapacity(slicePtr *[]byte, ensure int) {
+func ResizeSlice(slicePtr *[]byte, ensure int) {
 	slice := *slicePtr
-	if ensure <= cap(slice) {
-		return
+	if ensure > cap(slice) {
+		remainder := ensure % 512
+		if remainder == 0 {
+			*slicePtr = make([]byte, ensure)
+		} else {
+			*slicePtr = make([]byte, ensure + (512 - remainder))
+		}
 	}
 
-	// Find smallest 512-aligned size that is >= cap
-	remainder := ensure % 512
-	if remainder == 0 {
-		*slicePtr = make([]byte, ensure)
-	} else {
-		*slicePtr = make([]byte, ensure + (512 - remainder))
-	}
+	// Replace the slice struct with one that's limited to the set length
+	*slicePtr = (*slicePtr)[:ensure]
 }

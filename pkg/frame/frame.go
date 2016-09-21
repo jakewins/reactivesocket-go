@@ -79,7 +79,7 @@ func (d *FrameDecoder) Read(target *Frame) error {
 	if err != nil {
 		return err
 	}
-	header.EnsureCapacity(&target.Buf, frameLength)
+	header.ResizeSlice(&target.Buf, frameLength)
 
 	restOfFrameSlice := target.Buf[header.SizeOfInt:frameLength]
 	_, err = io.ReadFull(d.Source, restOfFrameSlice)
@@ -91,7 +91,7 @@ func (d *FrameDecoder) Read(target *Frame) error {
 }
 
 func (d *FrameDecoder) readFrameLength(target *Frame) (int, error) {
-	header.EnsureCapacity(&target.Buf, header.SizeOfInt)
+	header.ResizeSlice(&target.Buf, header.SizeOfInt)
 	frameSizeSlice := target.Buf[:header.SizeOfInt]
 
 	_, err := io.ReadFull(d.Source, frameSizeSlice)
