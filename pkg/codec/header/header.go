@@ -9,8 +9,7 @@ import (
 const (
 	SizeOfInt = 4
 	SizeOfShort = 2
-	frameLengthFieldOffset = 0
-	typeFieldOffset = frameLengthFieldOffset + SizeOfInt
+	typeFieldOffset = 0
 	flagsFieldOffset = typeFieldOffset + SizeOfShort
 	streamIdFieldOffset = flagsFieldOffset + SizeOfShort
 	payloadOffset = streamIdFieldOffset + SizeOfInt
@@ -48,8 +47,7 @@ func MimeType(b []byte, offset int) string {
 	return string(b[offset+1:offset+1+length])
 }
 
-func EncodeHeader(buf []byte, frameLength uint32, flags uint16, ft uint16, streamId uint32) {
-	PutUint32(buf, frameLengthFieldOffset, frameLength)
+func EncodeHeader(buf []byte, flags uint16, ft uint16, streamId uint32) {
 	PutUint16(buf, typeFieldOffset, ft)
 	PutUint16(buf, flagsFieldOffset, flags)
 	PutUint32(buf, streamIdFieldOffset, streamId)
@@ -57,10 +55,6 @@ func EncodeHeader(buf []byte, frameLength uint32, flags uint16, ft uint16, strea
 
 func Flags(b []byte) uint16 {
 	return Uint16(b, flagsFieldOffset)
-}
-
-func FrameLength(b []byte) int {
-	return int(Uint32(b, frameLengthFieldOffset))
 }
 
 func FrameType(b []byte) uint16 {

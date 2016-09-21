@@ -39,7 +39,7 @@ func Encode(bufPtr *[]byte, flags uint16, keepaliveInterval, maxLifetime uint32,
 		flags |= header.FlagHasMetadata
 	}
 
-	header.EncodeHeader(buf, uint32(frameLength), flags, header.FTSetup, 0)
+	header.EncodeHeader(buf, flags, header.FTSetup, 0)
 	header.PutUint32(buf, versionFieldOffset, currentVersion)
 	header.PutUint32(buf, keepaliveIntervalFieldOffset, keepaliveInterval)
 	header.PutUint32(buf, maxLifetimeFieldOffset, maxLifetime)

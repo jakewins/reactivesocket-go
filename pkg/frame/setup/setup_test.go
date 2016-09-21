@@ -52,6 +52,9 @@ func TestSetupFrameEncoding(t *testing.T) {
 	if !bytes.Equal(f.Metadata(), metadata) {
 		t.Errorf("Expected frame metadata to be `% x` but found `% x`", metadata, f.Metadata())
 	}
+	if len(f.Buf) != 60 {
+		t.Errorf("Expected frame length to be %d but found %d", 60, len(f.Buf))
+	}
 }
 
 func TestShouldFlagMetadataIfMetadataNonEmpty(t *testing.T) {

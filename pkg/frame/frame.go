@@ -40,7 +40,7 @@ func (f *Frame) Metadata() []byte {
 }
 
 func (f *Frame) dataLength() int {
-	frameLength := header.FrameLength(f.Buf)
+	frameLength := len(f.Buf)
 	metadataLength := f.metadataFieldLength()
 	return frameLength - metadataLength - f.payloadOffset()
 }
@@ -95,15 +95,31 @@ func (d *FrameDecoder) readFrameLength(target *Frame) (int, error) {
 		return 0, err
 	}
 
-	return header.FrameLength(target.Buf), nil
+	frameLength := int(header.Uint32(target.Buf, 0) - header.SizeOfInt)
+	return frameLength, nil
 }
 
 type FrameEncoder struct {
 	Sink io.Writer
+	frameLengthScratch []byte
 }
 
-func (self *FrameEncoder) Write(frame *Frame) error {
-	_, err := self.Sink.Write(frame.Buf)
+func (e *FrameEncoder) Write(frame *Frame) error {
+	if err := e.writeFrameLength(frame); err != nil {
+		return err
+	}
+	_, err := e.Sink.Write(frame.Buf)
+	return err
+}
+
+func (e *FrameEncoder) writeFrameLength(frame *Frame) error {
+	if len(e.frameLengthScratch) != 4 {
+		e.frameLengthScratch = make([]byte, 4)
+	}
+	frameLength := uint32(len(frame.Buf) + header.SizeOfInt)
+	header.PutUint32(e.frameLengthScratch, 0, frameLength)
+
+	_, err := e.Sink.Write(e.frameLengthScratch)
 	return err
 }
 
