@@ -73,7 +73,7 @@ func requestResponseInitializer(initialData, initialMetaData, marble string) *fu
 // Stuff that should be moved once hashed out
 
 type Subscriber interface {
-
+	OnNext({}interface)
 }
 
 type Publisher interface {
