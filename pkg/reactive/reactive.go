@@ -1,4 +1,4 @@
-package reactivestreams
+package reactive
 
 // I'm not sure if replicating the reactive streams API
 // out like this is a good idea; however, I can't find an "official"
@@ -11,10 +11,10 @@ package reactivestreams
 // A Publisher can serve multiple Subscribers, dynamically subscribed at
 // various points in time.
 type Publisher interface {
-  // Request the Publisher to start streaming data.
+	// Request the Publisher to start streaming data.
 	// This is a "factory method", it can be called multiple times, Each time
 	// starting a new Subscription
-  Subscribe(s Subscriber)
+	Subscribe(s Subscriber)
 }
 
 // Will receive a call to OnSubscribe once after being passed to Publisher#Subscribe,
@@ -25,13 +25,13 @@ type Subscriber interface {
 	//       easier to subscribe to a publisher without implementing all the things..
 
 	OnSubscribe(s Subscription)
-  OnNext(v interface{})
-  OnError(e error)
-  OnComplete()
+	OnNext(v interface{})
+	OnError(e error)
+	OnComplete()
 }
 
 // Represents a one-to-one lifecycle of a Subscriber subscribing to a Publisher
 type Subscription interface {
-  Request(n int)
-  Cancel()
+	Request(n int)
+	Cancel()
 }

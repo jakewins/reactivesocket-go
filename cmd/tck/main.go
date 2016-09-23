@@ -7,8 +7,10 @@ import (
 	"log"
 	"strings"
 	"fmt"
-	"io"
 	"net"
+	"github.com/jakewins/reactivesocket-go/pkg/reactive"
+	"github.com/jakewins/reactivesocket-go/pkg/frame"
+	"strconv"
 )
 
 var (
@@ -40,7 +42,7 @@ func runServer(port int, path string) {
 	}
 	defer file.Close()
 
-	builder := NewServerBuilder()
+	builder := NewRequestHandlerBuilder()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -58,13 +60,11 @@ func runServer(port int, path string) {
 		log.Fatal(err)
 	}
 
-
-	server, err := ServeReactiveSocketOverTCP(":" + port, builder.Build())
-	defer server.Close()
+	log.Fatal(ListenAndServe(":" + strconv.Itoa(port), builder.Build()))
 }
 
-func requestResponseInitializer(initialData, initialMetaData, marble string) *func(Payload) Publisher {
-	return func(firstPacket Payload) Publisher {
+func requestResponseInitializer(initialData, initialMetaData, marble string) RequestResponseHandler {
+	return func(firstPacket Payload) reactive.Publisher {
 		return nil
 	}
 }
@@ -72,47 +72,48 @@ func requestResponseInitializer(initialData, initialMetaData, marble string) *fu
 
 // Stuff that should be moved once hashed out
 
-type Subscriber interface {
-	OnNext({}interface)
-}
-
-type Publisher interface {
-	Subscribe(s Subscriber)
-}
-
-type RequestHandler interface {
-	HandleRequestResponse(initial Payload) Publisher
-}
-
-type Initializer func(Payload) Publisher
-
 type Payload interface {
-	Metadata() io.Reader
-	Data() io.Reader
+	Metadata() []byte
+	Data() []byte
 }
 
-func NewServerBuilder() ServerBuilder {
-	return ServerBuilder{}
+type RequestHandler struct {
+	requestResponse RequestResponseHandler
+}
+func (h *RequestHandler) HandleRequestResponse(payload Payload) reactive.Publisher {
+	return h.requestResponse(payload)
 }
 
-type ServerBuilder struct {
+type RequestResponseHandler func(Payload) reactive.Publisher
 
+func NewRequestHandlerBuilder() *RequestHandlerBuilder {
+	return &RequestHandlerBuilder{}
 }
-func (self *ServerBuilder) WithRequestResponse(initializer Initializer) ServerBuilder
-func (self *ServerBuilder) Build() RequestHandler
+
+type RequestHandlerBuilder struct {
+	requestResponse RequestResponseHandler
+}
+func (s *RequestHandlerBuilder) WithRequestResponse(h RequestResponseHandler) *RequestHandlerBuilder {
+	s.requestResponse = h
+	return s
+}
+
+func (s *RequestHandlerBuilder) Build() RequestHandler {
+	return RequestHandler{
+		s.requestResponse,
+	}
+}
 
 // Transport
 
-func ServeReactiveSocketOverTCP(address string, handler RequestHandler) (Server, error) {
+func ListenAndServe(address string, handler RequestHandler) error {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	server := TCPReactiveSocketServer{listener}
-	go server.acceptLoop()
-
-	return server, nil
+	return server.serve()
 }
 
 type Server interface {
@@ -124,19 +125,18 @@ type TCPReactiveSocketServer struct {
 	listener net.Listener
 }
 
-func (s *TCPReactiveSocketServer) acceptLoop() {
+func (s *TCPReactiveSocketServer) serve() error {
 	for {
 		fmt.Println("Waiting for connection..")
-		conn, err := s.listener.Accept()
+		rwc, err := s.listener.Accept()
 		if err != nil {
-			// TODO: Explore client-provided error strategies and best practices
-			log.Println("Failure accepting new inbound request, server will shut down: %s", err.Error())
-			return
+			// TODO: See stdlib http loop, it checks for temporary network errors here
+			return err
 		}
 
-		fmt.Println("Got one, spinning off worker thread!")
 		// TODO: Proper resource handling - close these guys on server close
-		go s.workerLoop(conn)
+		c := &conn{rwc:rwc}
+		go c.serve()
 	}
 }
 
@@ -148,19 +148,23 @@ func (s *TCPReactiveSocketServer) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
-func (s *TCPReactiveSocketServer) Close() error {
-	// TODO: This will trigger an error in the accept loop, rewrite this to use a flag or something
-	return s.listener.Close()
+
+type conn struct {
+	rwc net.Conn
+	frame *frame.Frame
+	enc *frame.FrameEncoder
+	dec *frame.FrameDecoder
 }
 
-// Protocol
+func (c *conn) serve() {
+	c.dec = frame.NewFrameDecoder(c.rwc)
 
-type FrameLengthDecoder struct {
-	source *io.Reader
+	for {
+		if err := c.dec.Read(c.frame); err != nil {
+			fmt.Println("Failed to read frame; also, programmer failed to write error handling")
+			panic(err)
+		}
+
+		fmt.Printf("%+v", c.frame)
+	}
 }
-
-// Options; pass a full buffer (or view..) upstream
-//          let upstream provide a buffer to read from, optionally having to read more
-
-// Noting that flatbuffers uses full buffers.. and actually, the subscriber model kinda mandates it as well
-// So.. I guess FrameLengthDecoder should spit out whole bytes
