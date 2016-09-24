@@ -30,11 +30,7 @@ func computeFrameLength(metadataMimeType, dataMimeType string, metadata, data []
 func Encode(bufPtr *[]byte, flags uint16, keepaliveInterval, maxLifetime uint32,
 						metadataMimeType, dataMimeType string,
 						metadata, data []byte) {
-	frameLength := computeFrameLength(metadataMimeType, dataMimeType, metadata, data)
-
-	header.ResizeSlice(bufPtr, frameLength)
-	buf := *bufPtr
-
+	buf := header.ResizeSlice(bufPtr, computeFrameLength(metadataMimeType, dataMimeType, metadata, data))
 	if len(metadata) > 0 {
 		flags |= header.FlagHasMetadata
 	}
@@ -49,16 +45,7 @@ func Encode(bufPtr *[]byte, flags uint16, keepaliveInterval, maxLifetime uint32,
 	offset += header.PutMimeType(buf, offset, metadataMimeType)
 	offset += header.PutMimeType(buf, offset, dataMimeType)
 
-	if flags & header.FlagHasMetadata != 0 {
-		header.PutUint32(buf, offset, uint32(len(metadata) + sizeOfInt))
-		offset += sizeOfInt
-		copy(buf[offset:offset+len(metadata)], metadata)
-		offset += len(metadata)
-	}
-
-	if len(data) > 0 {
-		copy(buf[offset:], data)
-	}
+	header.EncodeMetaDataAndData(buf, metadata, data, offset, flags)
 }
 
 func Flags(b []byte) uint16 {

@@ -56,7 +56,3 @@ func TestSetupFrameEncoding(t *testing.T) {
 		t.Errorf("Expected frame length to be %d but found %d", 60, len(f.Buf))
 	}
 }
-
-func TestShouldFlagMetadataIfMetadataNonEmpty(t *testing.T) {
-	t.Errorf("TODO")
-}

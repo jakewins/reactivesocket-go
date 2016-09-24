@@ -21,7 +21,28 @@ const (
 )
 
 const (
+	// Connection
 	FTSetup uint16 = 0x01
+	FTLease = 0x02
+	FTKeepAlive = 0x03
+  // Requester to start request
+	FTRequestResponse = 0x04
+	FTFireAndForget = 0x05
+	FTRequestStream = 0x06
+	FTRequestSubscription = 0x07
+	FTRequestChannel = 0x08
+	// Requester mid-stream
+	FTRequestN = 0x09
+	FTCancel = 0x0A
+  // Responder
+	FTResponse = 0x0B
+	FTError = 0x0C
+  // Requester & Responder
+	FTMetadataPush = 0x0D
+  // synthetic types from Responder for use by the rest of the machinery
+	FTNext = 0x0E
+	FTComplete = 0x0F
+	FTNextComplete = 0x10
 )
 
 func computeMetadataLength(metadataPayloadLength int) int {
@@ -64,6 +85,18 @@ func StreamID(b []byte) uint32 {
 	return Uint32(b, streamIdFieldOffset)
 }
 
+func EncodeMetaDataAndData(buf, metadata, data []byte, offset int, flags uint16) {
+	if flags & FlagHasMetadata != 0 {
+		PutUint32(buf, offset, uint32(len(metadata) + SizeOfInt))
+		offset += SizeOfInt
+		copy(buf[offset:offset+len(metadata)], metadata)
+		offset += len(metadata)
+	}
+
+	if len(data) > 0 {
+		copy(buf[offset:], data)
+	}
+}
 
 // Below are general-ish utility methods that are used by the codec packages
 
@@ -85,7 +118,11 @@ func Uint32(b []byte, offset int) uint32 {
 
 // Ensure the given pointer refers to a slice with at least the specified capacity,
 // allocating a new underlying array for the slice to point to if not
-func ResizeSlice(slicePtr *[]byte, ensure int) {
+// Returns the resized slice.
+// TODO: I really don't like this, it's a result of Codec not depending on Frame,
+//       and using len(frame.Buf) to track frame length. It'd be nicer to have someting
+//       that took a regular slice and returned another, like append() does.
+func ResizeSlice(slicePtr *[]byte, ensure int) []byte {
 	slice := *slicePtr
 	if ensure > cap(slice) {
 		remainder := ensure % 512
@@ -98,4 +135,5 @@ func ResizeSlice(slicePtr *[]byte, ensure int) {
 
 	// Replace the slice struct with one that's limited to the set length
 	*slicePtr = (*slicePtr)[:ensure]
+	return *slicePtr
 }

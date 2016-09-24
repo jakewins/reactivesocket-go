@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/codec/setup"
+	"github.com/jakewins/reactivesocket-go/pkg/codec/request"
 )
 
 type Frame struct {
@@ -54,6 +55,10 @@ func (f *Frame) payloadOffset() int {
 	switch f.Type() {
 	case header.FTSetup:
 		return setup.PayloadOffset(f.Buf)
+	case header.FTFireAndForget:
+		return request.PayloadOffset(f.Buf)
+	case header.FTRequestResponse:
+		return request.PayloadOffset(f.Buf)
 	}
 	panic(fmt.Sprintf("Unknown frame type: %d", f.Type()))
 }
