@@ -23,6 +23,8 @@ func InitialRequestN(f *frame.Frame) uint32 {
 		return request.InitialRequestN(f.Buf)
 	case header.FTRequestStream:
 		return request.InitialRequestN(f.Buf)
+	case header.FTRequestSubscription:
+		return request.InitialRequestN(f.Buf)
 	}
 	panic(fmt.Sprintf("Expected a request frame, got %d", f.Type()))
 }
