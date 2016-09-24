@@ -33,7 +33,7 @@ func TestFireAndForgetFrameEncoding(t *testing.T) {
 		t.Errorf("Expected frame metadata to be `% x` but found `% x`", metadata, f.Metadata())
 	}
 	if len(f.Buf) != 18 {
-		t.Errorf("Expected frame length to be %d but found %d", 60, len(f.Buf))
+		t.Errorf("Expected frame length to be %d but found %d", 18, len(f.Buf))
 	}
 }
 
@@ -62,6 +62,36 @@ func TestRequestResponseFrameEncoding(t *testing.T) {
 		t.Errorf("Expected frame metadata to be `% x` but found `% x`", metadata, f.Metadata())
 	}
 	if len(f.Buf) != 18 {
+		t.Errorf("Expected frame length to be %d but found %d", 18, len(f.Buf))
+	}
+}
+
+func TestRequestChannelFrameEncoding(t *testing.T) {
+	var flags uint16 = 0
+	metadata := []byte{1,2,3}
+	data := []byte{4,5,6}
+	var streamId uint32 = 7331
+	var initialRequestN uint32 = 1338
+
+	f := &frame.Frame{}
+	request.EncodeWithInitialN(f, streamId, initialRequestN, flags, header.FTRequestChannel, metadata, data)
+
+	if request.InitialRequestN(f) != initialRequestN {
+		t.Errorf("Expected initial request N to be %d, found %d", initialRequestN, request.InitialRequestN(f))
+	}
+	if f.Type() != header.FTRequestChannel {
+		t.Errorf("Expected type to be %d, found %d", header.FTRequestResponse, f.Type())
+	}
+	if f.StreamID() != streamId {
+		t.Errorf("Expected stream id to be %d, found %d", streamId, f.StreamID())
+	}
+	if !bytes.Equal(f.Data(), data) {
+		t.Errorf("Expected frame data to be `% x` but found `% x`", data, f.Data())
+	}
+	if !bytes.Equal(f.Metadata(), metadata) {
+		t.Errorf("Expected frame metadata to be `% x` but found `% x`", metadata, f.Metadata())
+	}
+	if len(f.Buf) != 22 {
 		t.Errorf("Expected frame length to be %d but found %d", 60, len(f.Buf))
 	}
 }

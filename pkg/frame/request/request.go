@@ -11,10 +11,16 @@ func Encode(target *frame.Frame, streamId uint32, flags, frameType uint16, metad
 	request.Encode(&target.Buf, streamId, flags, frameType, metadata, data)
 }
 
-func InitialRequestN(f *frame.Frame) int {
+func EncodeWithInitialN(target *frame.Frame, streamId, initialN uint32, flags, frameType uint16, metadata, data []byte) {
+	request.EncodeWithInitialN(&target.Buf, streamId, initialN, flags, frameType, metadata, data)
+}
+
+func InitialRequestN(f *frame.Frame) uint32 {
 	switch(f.Type()) {
 	case header.FTFireAndForget: return 0;
 	case header.FTRequestResponse: return 1;
+	case header.FTRequestChannel:
+		return request.InitialRequestN(f.Buf)
 	}
 	panic(fmt.Sprintf("Expected a request frame, got %d", f.Type()))
 }

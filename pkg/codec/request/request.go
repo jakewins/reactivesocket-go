@@ -5,6 +5,11 @@ import (
 )
 
 const (
+	RequestFlagRequestChannelC = 1 << 12
+	RequestFlagRequestChannelN = 1 << 11
+)
+
+const (
 	sizeOfInt = header.SizeOfInt
 	initialNFieldOffset = header.FrameHeaderLength
 )
@@ -30,8 +35,16 @@ func EncodeWithInitialN(bufPtr *[]byte, streamId, initialN uint32, flags, frameT
 	if len(metadata) > 0 {
 		flags |= header.FlagHasMetadata
 	}
+	flags |= RequestFlagRequestChannelN
 
-	header.EncodeHeader(buf, flags, frameType, 0)
+	header.EncodeHeader(buf, flags, frameType, streamId)
+
+	header.PutUint32(buf, initialNFieldOffset, initialN)
+
+	offset := initialNFieldOffset
+	offset += sizeOfInt
+
+	header.EncodeMetaDataAndData(buf, metadata, data, offset, flags)
 }
 
 func PayloadOffset(b []byte) int {
@@ -40,4 +53,8 @@ func PayloadOffset(b []byte) int {
 
 func PayloadOffsetWithInitialN(b []byte) int {
 	return initialNFieldOffset + sizeOfInt
+}
+
+func InitialRequestN(b []byte) uint32 {
+	return header.Uint32(b, initialNFieldOffset)
 }

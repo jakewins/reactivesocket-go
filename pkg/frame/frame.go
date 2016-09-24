@@ -59,6 +59,8 @@ func (f *Frame) payloadOffset() int {
 		return request.PayloadOffset(f.Buf)
 	case header.FTRequestResponse:
 		return request.PayloadOffset(f.Buf)
+	case header.FTRequestChannel:
+		return request.PayloadOffsetWithInitialN(f.Buf)
 	}
 	panic(fmt.Sprintf("Unknown frame type: %d", f.Type()))
 }
