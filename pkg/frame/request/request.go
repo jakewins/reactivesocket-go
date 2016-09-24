@@ -21,6 +21,8 @@ func InitialRequestN(f *frame.Frame) uint32 {
 	case header.FTRequestResponse: return 1;
 	case header.FTRequestChannel:
 		return request.InitialRequestN(f.Buf)
+	case header.FTRequestStream:
+		return request.InitialRequestN(f.Buf)
 	}
 	panic(fmt.Sprintf("Expected a request frame, got %d", f.Type()))
 }
