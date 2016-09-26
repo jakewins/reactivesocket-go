@@ -2,40 +2,41 @@ package proto_test
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
-	"testing"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
-	"fmt"
+	"testing"
 )
 
 type scenario struct {
-	name string
-	handler *rs.RequestHandler
+	name      string
+	handler   *rs.RequestHandler
 	exchanges []exchange
 }
 type exchange struct {
-	in []*frame.Frame
+	in  []*frame.Frame
 	out []*frame.Frame
 }
 
 var scenarios = []scenario{
-	scenario{ "Simple keepalive(response plz) -> keepalive", nil, exchanges{
-			exchange{
-				in{keepalive.New(true)},
-				out{keepalive.New(false)},
-			},
+	scenario{"Simple keepalive(response plz) -> keepalive", nil, exchanges{
+		exchange{
+			in{keepalive.New(true)},
+			out{keepalive.New(false)},
 		},
 	},
-	scenario{ "Keepalive with no response", nil, exchanges{
-			exchange{
-				in{keepalive.New(false)},
-				out{},
-			},
+	},
+	scenario{"Keepalive with no response", nil, exchanges{
+		exchange{
+			in{keepalive.New(false)},
+			out{},
 		},
+	},
 	},
 }
+
 type in []*frame.Frame
 type out []*frame.Frame
 type exchanges []exchange
@@ -59,6 +60,7 @@ func TestScenarios(t *testing.T) {
 type recorder struct {
 	recording []*frame.Frame
 }
+
 func (r *recorder) Record(f *frame.Frame) {
 	r.recording = append(r.recording, f.Copy(nil))
 }
