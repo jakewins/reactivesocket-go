@@ -2,8 +2,8 @@ package setup
 
 
 import (
-	"github.com/jakewins/reactivesocket-go/pkg/codec/setup"
-	"github.com/jakewins/reactivesocket-go/pkg/frame"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 )
 
 const (

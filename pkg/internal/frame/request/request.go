@@ -1,9 +1,9 @@
 package request
 
 import (
-	"github.com/jakewins/reactivesocket-go/pkg/frame"
-	"github.com/jakewins/reactivesocket-go/pkg/codec/request"
-	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"fmt"
 )
 

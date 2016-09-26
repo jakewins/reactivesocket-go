@@ -3,8 +3,8 @@ package frame_test
 import (
 	"testing"
 	"bytes"
-	"github.com/jakewins/reactivesocket-go/pkg/frame"
-	"github.com/jakewins/reactivesocket-go/pkg/frame/setup"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/setup"
 )
 
 var payloads = [][]byte{

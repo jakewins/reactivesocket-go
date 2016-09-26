@@ -2,7 +2,7 @@ package header_test
 
 import (
 	"testing"
-	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 )
 
 var capacities = [][]int{

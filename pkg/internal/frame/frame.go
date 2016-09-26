@@ -4,9 +4,9 @@ package frame
 import (
 	"io"
 	"fmt"
-	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
-	"github.com/jakewins/reactivesocket-go/pkg/codec/setup"
-	"github.com/jakewins/reactivesocket-go/pkg/codec/request"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
 )
 
 type Frame struct {

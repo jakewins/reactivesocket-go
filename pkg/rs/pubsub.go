@@ -1,4 +1,4 @@
-package reactive
+package rs
 
 // I'm not sure if replicating the reactive streams API
 // out like this is a good idea; however, I can't find an "official"

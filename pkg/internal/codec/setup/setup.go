@@ -1,7 +1,7 @@
 package setup
 
 import (
-	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 )
 
 const (

@@ -3,9 +3,9 @@ package request_test
 import (
 	"testing"
 	"bytes"
-	"github.com/jakewins/reactivesocket-go/pkg/frame"
-	"github.com/jakewins/reactivesocket-go/pkg/codec/header"
-	"github.com/jakewins/reactivesocket-go/pkg/frame/request"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
 )
 
 func TestFireAndForgetFrameEncoding(t *testing.T) {
