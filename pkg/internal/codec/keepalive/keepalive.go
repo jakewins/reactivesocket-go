@@ -6,7 +6,7 @@ import (
 
 func Encode(bufPtr *[]byte, respond bool) {
 	var flags uint16
-	buf := header.ResizeSlice(bufPtr, header.ComputeLength(0,0))
+	buf := header.ResizeSlice(bufPtr, header.ComputeLength(0, 0))
 
 	if respond {
 		flags |= header.FlagKeepaliveRespond
@@ -15,7 +15,7 @@ func Encode(bufPtr *[]byte, respond bool) {
 }
 
 func Describe(buf []byte) string {
-	if header.Flags(buf) & header.FlagKeepaliveRespond != 0 {
+	if header.Flags(buf)&header.FlagKeepaliveRespond != 0 {
 		return "KeepAlive{respond=yes}"
 	}
 	return "KeepAlive{respond=no}"

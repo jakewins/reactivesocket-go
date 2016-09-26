@@ -1,13 +1,12 @@
 package frame
 
-
 import (
-	"io"
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/keepalive"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
+	"io"
 )
 
 // Frame is our single data container, it can take the shape of any
@@ -39,16 +38,16 @@ func (f *Frame) Data() []byte {
 	if 0 == dataLength {
 		return nil
 	}
-	return f.Buf[dataOffset:dataOffset+dataLength]
+	return f.Buf[dataOffset : dataOffset+dataLength]
 }
 
 func (f *Frame) Metadata() []byte {
-	metadataLength := max(0, f.metadataFieldLength() - header.SizeOfInt)
+	metadataLength := max(0, f.metadataFieldLength()-header.SizeOfInt)
 	metadataOffset := f.payloadOffset() + header.SizeOfInt
 	if 0 == metadataLength {
 		return nil
 	}
-	return f.Buf[metadataOffset:metadataOffset+metadataLength]
+	return f.Buf[metadataOffset : metadataOffset+metadataLength]
 }
 
 // Make a copy of this frame. If target is provided, it will be
@@ -56,7 +55,7 @@ func (f *Frame) Metadata() []byte {
 // frame will be allocated.
 func (f *Frame) Copy(target *Frame) *Frame {
 	if target == nil {
-		target = &Frame{Buf:make([]byte, len(f.Buf))}
+		target = &Frame{Buf: make([]byte, len(f.Buf))}
 	}
 	header.ResizeSlice(&target.Buf, len(f.Buf))
 	copy(target.Buf, f.Buf)
@@ -106,7 +105,7 @@ func (f *Frame) payloadOffset() int {
 }
 
 func (f *Frame) metadataFieldLength() int {
-	if header.Flags(f.Buf) & header.FlagHasMetadata == 0 {
+	if header.Flags(f.Buf)&header.FlagHasMetadata == 0 {
 		return 0
 	}
 
@@ -150,7 +149,7 @@ func NewFrameDecoder(source io.Reader) *FrameDecoder {
 }
 
 type FrameEncoder struct {
-	sink io.Writer
+	sink               io.Writer
 	frameLengthScratch []byte
 }
 

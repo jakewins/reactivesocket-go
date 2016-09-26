@@ -2,12 +2,12 @@ package tcp
 
 import (
 	"fmt"
-	"net"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/setup"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
+	"net"
 )
 
 func ListenAndServe(address string, setup rs.ConnectionSetupHandler) error {
@@ -22,7 +22,7 @@ func ListenAndServe(address string, setup rs.ConnectionSetupHandler) error {
 
 type server struct {
 	listener net.Listener
-	setup rs.ConnectionSetupHandler
+	setup    rs.ConnectionSetupHandler
 }
 
 func (s *server) serve() error {
@@ -34,18 +34,18 @@ func (s *server) serve() error {
 		}
 
 		// TODO: Proper resource handling - close these guys on server close
-		c := &conn{rwc:rwc, setup:s.setup}
+		c := &conn{rwc: rwc, setup: s.setup}
 		go c.serve()
 	}
 }
 
 type conn struct {
-	rwc net.Conn
-	frame frame.Frame
-	setup rs.ConnectionSetupHandler
+	rwc      net.Conn
+	frame    frame.Frame
+	setup    rs.ConnectionSetupHandler
 	protocol *proto.Protocol
-	enc *frame.FrameEncoder
-	dec *frame.FrameDecoder
+	enc      *frame.FrameEncoder
+	dec      *frame.FrameDecoder
 }
 
 func (c *conn) serve() {
@@ -65,8 +65,8 @@ func (c *conn) serve() {
 	}
 
 	sp := &setupPayload{
-		payload: f,
-		mime: setup.DataMimeType(f),
+		payload:  f,
+		mime:     setup.DataMimeType(f),
 		metaMime: setup.MetadataMimeType(f),
 	}
 
@@ -75,7 +75,7 @@ func (c *conn) serve() {
 		c.fatalError(err)
 	}
 
-	c.protocol = &proto.Protocol{Handler:handler}
+	c.protocol = &proto.Protocol{Handler: handler}
 
 	for {
 		if err := c.dec.Read(f); err != nil {
@@ -95,12 +95,12 @@ func (c *conn) fatalError(err error) {
 	panic(err)
 }
 
-
 type setupPayload struct {
-	payload rs.Payload
+	payload  rs.Payload
 	metaMime string
-	mime string
+	mime     string
 }
+
 func (s *setupPayload) Data() []byte {
 	return s.payload.Data()
 }

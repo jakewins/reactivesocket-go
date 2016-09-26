@@ -1,18 +1,17 @@
 package setup
 
-
 import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 )
 
 const (
-	FlagWillHonorLease = setup.SetupFlagWillHonorLease
+	FlagWillHonorLease       = setup.SetupFlagWillHonorLease
 	FlagStrictInterpretation = setup.SetupFlagStrictInterpretation
 )
 
 func Encode(target *frame.Frame, flags uint16, keepaliveInterval, maxLifetime uint32,
-                metadataMimeType, dataMimeType string, metadata, data []byte) *frame.Frame {
+	metadataMimeType, dataMimeType string, metadata, data []byte) *frame.Frame {
 	setup.Encode(&target.Buf, flags, keepaliveInterval, maxLifetime, metadataMimeType,
 		dataMimeType, metadata, data)
 	return target

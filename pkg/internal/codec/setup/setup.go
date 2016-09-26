@@ -5,19 +5,18 @@ import (
 )
 
 const (
-	SetupFlagWillHonorLease = 1 << 13
+	SetupFlagWillHonorLease       = 1 << 13
 	SetupFlagStrictInterpretation = 1 << 12
 )
 
 const (
-	sizeOfInt = header.SizeOfInt
-	currentVersion = 0
-	versionFieldOffset = header.FrameHeaderLength
+	sizeOfInt                    = header.SizeOfInt
+	currentVersion               = 0
+	versionFieldOffset           = header.FrameHeaderLength
 	keepaliveIntervalFieldOffset = versionFieldOffset + sizeOfInt
-	maxLifetimeFieldOffset = keepaliveIntervalFieldOffset + sizeOfInt
+	maxLifetimeFieldOffset       = keepaliveIntervalFieldOffset + sizeOfInt
 	metadataMimeTypeLengthOffset = maxLifetimeFieldOffset + sizeOfInt
 )
-
 
 func computeFrameLength(metadataMimeType, dataMimeType string, metadata, data []byte) int {
 	length := header.ComputeLength(len(metadata), len(data))
@@ -28,8 +27,8 @@ func computeFrameLength(metadataMimeType, dataMimeType string, metadata, data []
 }
 
 func Encode(bufPtr *[]byte, flags uint16, keepaliveInterval, maxLifetime uint32,
-						metadataMimeType, dataMimeType string,
-						metadata, data []byte) {
+	metadataMimeType, dataMimeType string,
+	metadata, data []byte) {
 	buf := header.ResizeSlice(bufPtr, computeFrameLength(metadataMimeType, dataMimeType, metadata, data))
 	if len(metadata) > 0 {
 		flags |= header.FlagHasMetadata
@@ -85,4 +84,3 @@ func PayloadOffset(b []byte) int {
 
 	return offset
 }
-

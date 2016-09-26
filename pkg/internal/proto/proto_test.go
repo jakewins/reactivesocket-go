@@ -1,11 +1,11 @@
 package proto_test
 
 import (
-	"testing"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
+	"bytes"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
-	"bytes"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
+	"testing"
 )
 
 func TestKeepAliveRespond(t *testing.T) {
@@ -16,7 +16,6 @@ func TestKeepAliveRespond(t *testing.T) {
 
 	r.Expect(t, keepalive.New(false))
 }
-
 
 func TestKeepAliveDontRespond(t *testing.T) {
 	r := recorder{}
@@ -30,12 +29,13 @@ func TestKeepAliveDontRespond(t *testing.T) {
 type recorder struct {
 	recording []*frame.Frame
 }
+
 func (r *recorder) Record(f *frame.Frame) {
 	r.recording = append(r.recording, f.Copy(nil))
 }
 func (r *recorder) Expect(t *testing.T, expected ...*frame.Frame) {
 	if len(expected) < len(r.recording) {
-		for i:=len(expected); i<len(r.recording); i++ {
+		for i := len(expected); i < len(r.recording); i++ {
 			t.Errorf("Expected no more than %d frames, frame %d is %s", len(expected), i+1, r.recording[i].Describe())
 		}
 		return

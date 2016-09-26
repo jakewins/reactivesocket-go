@@ -1,18 +1,18 @@
 package header_test
 
 import (
-	"testing"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"testing"
 )
 
 var capacities = [][]int{
 	// Original, Ensure, Expected
-	{         0,      0,       0},
-	{         1,      1,       1},
-	{         1,      2,     512},
-	{         1,    512,     512},
-	{       512,    512,     512},
-	{       512,    513,    1024},
+	{0, 0, 0},
+	{1, 1, 1},
+	{1, 2, 512},
+	{1, 512, 512},
+	{512, 512, 512},
+	{512, 513, 1024},
 }
 
 func TestEnsureCapacity(t *testing.T) {

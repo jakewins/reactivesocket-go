@@ -1,11 +1,11 @@
 package proto
 
 import (
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
-	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"fmt"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
+	"github.com/jakewins/reactivesocket-go/pkg/rs"
 )
 
 type Protocol struct {
@@ -27,19 +27,20 @@ type Protocol struct {
 
 func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame)) *Protocol {
 	return &Protocol{
-		Handler:h,
-		Send:send,
-		f:&frame.Frame{},
+		Handler: h,
+		Send:    send,
+		f:       &frame.Frame{},
 	}
 }
 
 func (self *Protocol) HandleFrame(f *frame.Frame) {
-	switch(f.Type()) {
+	switch f.Type() {
 	case header.FTRequestChannel:
 		self.handleRequestChannel(f)
 	case header.FTKeepAlive:
 		self.handleKeepAlive(f)
-	default: panic(fmt.Sprintf("Unknown frame: %d", f.Type()))
+	default:
+		panic(fmt.Sprintf("Unknown frame: %d", f.Type()))
 	}
 }
 func (self *Protocol) handleRequestChannel(f *frame.Frame) {
@@ -48,7 +49,7 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 	self.Handler.HandleChannel(f, nil)
 }
 func (self *Protocol) handleKeepAlive(f *frame.Frame) {
-	if f.Flags() & header.FlagKeepaliveRespond != 0 {
+	if f.Flags()&header.FlagKeepaliveRespond != 0 {
 		self.Send(keepalive.Encode(self.f, false))
 	}
 }

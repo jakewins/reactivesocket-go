@@ -1,21 +1,21 @@
 package main
 
 import (
-	"flag"
-	"os"
 	"bufio"
-	"log"
-	"strings"
-	"strconv"
+	"flag"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"github.com/jakewins/reactivesocket-go/pkg/transport/tcp"
+	"log"
+	"os"
+	"strconv"
+	"strings"
 )
 
 var (
 	server bool
-	host string
-	port int
-	file string
+	host   string
+	port   int
+	file   string
 )
 
 func init() {
@@ -98,10 +98,10 @@ func runServer(port int, path string) {
 	}
 
 	handler := &rs.RequestHandler{
-		HandleRequestResponse:requestResponseInitializer(requestResponseMarbles),
+		HandleRequestResponse: requestResponseInitializer(requestResponseMarbles),
 	}
 
-	log.Fatal(tcp.ListenAndServe(":" + strconv.Itoa(port), func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
+	log.Fatal(tcp.ListenAndServe(":"+strconv.Itoa(port), func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
 		return handler, nil
 	}))
 }

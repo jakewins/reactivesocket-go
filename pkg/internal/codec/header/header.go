@@ -1,48 +1,48 @@
 package header
 
 import (
-"encoding/binary"
+	"encoding/binary"
 )
 
 // Common for all frames
 
 const (
-	SizeOfInt = 4
-	SizeOfShort = 2
-	typeFieldOffset = 0
-	flagsFieldOffset = typeFieldOffset + SizeOfShort
+	SizeOfInt           = 4
+	SizeOfShort         = 2
+	typeFieldOffset     = 0
+	flagsFieldOffset    = typeFieldOffset + SizeOfShort
 	streamIdFieldOffset = flagsFieldOffset + SizeOfShort
-	payloadOffset = streamIdFieldOffset + SizeOfInt
-	FrameHeaderLength = payloadOffset
+	payloadOffset       = streamIdFieldOffset + SizeOfInt
+	FrameHeaderLength   = payloadOffset
 )
 
 const (
-	FlagHasMetadata uint16 = 1 << 15
-	FlagKeepaliveRespond = 1 << 13
+	FlagHasMetadata      uint16 = 1 << 15
+	FlagKeepaliveRespond        = 1 << 13
 )
 
 const (
 	// Connection
-	FTSetup uint16 = 0x01
-	FTLease = 0x02
-	FTKeepAlive = 0x03
-  // Requester to start request
-	FTRequestResponse = 0x04
-	FTFireAndForget = 0x05
-	FTRequestStream = 0x06
+	FTSetup     uint16 = 0x01
+	FTLease            = 0x02
+	FTKeepAlive        = 0x03
+	// Requester to start request
+	FTRequestResponse     = 0x04
+	FTFireAndForget       = 0x05
+	FTRequestStream       = 0x06
 	FTRequestSubscription = 0x07
-	FTRequestChannel = 0x08
+	FTRequestChannel      = 0x08
 	// Requester mid-stream
 	FTRequestN = 0x09
-	FTCancel = 0x0A
-  // Responder
+	FTCancel   = 0x0A
+	// Responder
 	FTResponse = 0x0B
-	FTError = 0x0C
-  // Requester & Responder
+	FTError    = 0x0C
+	// Requester & Responder
 	FTMetadataPush = 0x0D
-  // synthetic types from Responder for use by the rest of the machinery
-	FTNext = 0x0E
-	FTComplete = 0x0F
+	// synthetic types from Responder for use by the rest of the machinery
+	FTNext         = 0x0E
+	FTComplete     = 0x0F
 	FTNextComplete = 0x10
 )
 
@@ -66,7 +66,7 @@ func PutMimeType(b []byte, offset int, mimeType string) int {
 
 func MimeType(b []byte, offset int) string {
 	length := int(b[offset])
-	return string(b[offset+1:offset+1+length])
+	return string(b[offset+1 : offset+1+length])
 }
 
 func EncodeHeader(buf []byte, flags uint16, ft uint16, streamId uint32) {
@@ -87,8 +87,8 @@ func StreamID(b []byte) uint32 {
 }
 
 func EncodeMetaDataAndData(buf, metadata, data []byte, offset int, flags uint16) {
-	if flags & FlagHasMetadata != 0 {
-		PutUint32(buf, offset, uint32(len(metadata) + SizeOfInt))
+	if flags&FlagHasMetadata != 0 {
+		PutUint32(buf, offset, uint32(len(metadata)+SizeOfInt))
 		offset += SizeOfInt
 		copy(buf[offset:offset+len(metadata)], metadata)
 		offset += len(metadata)
@@ -130,7 +130,7 @@ func ResizeSlice(slicePtr *[]byte, ensure int) []byte {
 		if remainder == 0 {
 			*slicePtr = make([]byte, ensure)
 		} else {
-			*slicePtr = make([]byte, ensure + (512 - remainder))
+			*slicePtr = make([]byte, ensure+(512-remainder))
 		}
 	}
 

@@ -1,10 +1,10 @@
 package request
 
 import (
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"fmt"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 )
 
 func Encode(target *frame.Frame, streamId uint32, flags, frameType uint16, metadata, data []byte) *frame.Frame {
@@ -28,9 +28,11 @@ func NewWithInitialN(streamId, initialN uint32, flags, frameType uint16, metadat
 }
 
 func InitialRequestN(f *frame.Frame) uint32 {
-	switch(f.Type()) {
-	case header.FTFireAndForget: return 0;
-	case header.FTRequestResponse: return 1;
+	switch f.Type() {
+	case header.FTFireAndForget:
+		return 0
+	case header.FTRequestResponse:
+		return 1
 	case header.FTRequestChannel:
 		return request.InitialRequestN(f.Buf)
 	case header.FTRequestStream:

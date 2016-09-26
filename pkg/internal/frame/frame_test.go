@@ -1,20 +1,20 @@
 package frame_test
 
 import (
-	"testing"
 	"bytes"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/setup"
+	"testing"
 )
 
 var payloads = [][]byte{
 	{},
 	{1},
-	{1,2,3,4,5,6,7},
+	{1, 2, 3, 4, 5, 6, 7},
 }
 
 func TestDecodeFrame(t *testing.T) {
-	for _, payload := range payloads  {
+	for _, payload := range payloads {
 		buffer := &bytes.Buffer{}
 		encoder := frame.NewFrameEncoder(buffer)
 		decoder := frame.NewFrameDecoder(buffer)

@@ -1,8 +1,8 @@
 package keepalive
 
 import (
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/keepalive"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 )
 
 func Encode(target *frame.Frame, respond bool) *frame.Frame {

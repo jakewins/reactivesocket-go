@@ -1,7 +1,7 @@
 package request
 
 import (
-"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 )
 
 const (
@@ -10,7 +10,7 @@ const (
 )
 
 const (
-	sizeOfInt = header.SizeOfInt
+	sizeOfInt           = header.SizeOfInt
 	initialNFieldOffset = header.FrameHeaderLength
 )
 

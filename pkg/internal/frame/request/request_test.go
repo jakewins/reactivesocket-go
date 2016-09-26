@@ -1,17 +1,17 @@
 package request_test
 
 import (
-	"testing"
 	"bytes"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
+	"testing"
 )
 
 func TestFireAndForgetFrameEncoding(t *testing.T) {
 	var flags uint16 = 0
-	metadata := []byte{1,2,3}
-	data := []byte{4,5,6}
+	metadata := []byte{1, 2, 3}
+	data := []byte{4, 5, 6}
 	var streamId uint32 = 1337
 
 	f := request.New(streamId, flags, header.FTFireAndForget, metadata, data)
@@ -38,8 +38,8 @@ func TestFireAndForgetFrameEncoding(t *testing.T) {
 
 func TestRequestResponseFrameEncoding(t *testing.T) {
 	var flags uint16 = 0
-	metadata := []byte{1,2,3}
-	data := []byte{4,5,6}
+	metadata := []byte{1, 2, 3}
+	data := []byte{4, 5, 6}
 	var streamId uint32 = 1337
 
 	f := &frame.Frame{}
@@ -67,8 +67,8 @@ func TestRequestResponseFrameEncoding(t *testing.T) {
 
 func TestRequestChannelFrameEncoding(t *testing.T) {
 	var flags uint16 = 0
-	metadata := []byte{1,2,3}
-	data := []byte{4,5,6}
+	metadata := []byte{1, 2, 3}
+	data := []byte{4, 5, 6}
 	var streamId uint32 = 7331
 	var initialRequestN uint32 = 1338
 
@@ -97,8 +97,8 @@ func TestRequestChannelFrameEncoding(t *testing.T) {
 
 func TestRequestStreamFrameEncoding(t *testing.T) {
 	var flags uint16 = 0
-	metadata := []byte{1,2,3}
-	data := []byte{4,5,6}
+	metadata := []byte{1, 2, 3}
+	data := []byte{4, 5, 6}
 	var streamId uint32 = 7331
 	var initialRequestN uint32 = 1338
 
@@ -127,8 +127,8 @@ func TestRequestStreamFrameEncoding(t *testing.T) {
 
 func TestRequestSubscriptionFrameEncoding(t *testing.T) {
 	var flags uint16 = 0
-	metadata := []byte{1,2,3}
-	data := []byte{4,5,6}
+	metadata := []byte{1, 2, 3}
+	data := []byte{4, 5, 6}
 	var streamId uint32 = 7331
 	var initialRequestN uint32 = 1338
 
