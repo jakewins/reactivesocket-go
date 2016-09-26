@@ -21,14 +21,14 @@ type exchange struct {
 }
 
 var scenarios = []scenario{
-	scenario{"Simple keepalive(response plz) -> keepalive", nil, exchanges{
+	{"Simple keepalive(response plz) -> keepalive", nil, exchanges{
 		exchange{
 			in{keepalive.New(true)},
 			out{keepalive.New(false)},
 		},
 	},
 	},
-	scenario{"Keepalive with no response", nil, exchanges{
+	{"Keepalive with no response", nil, exchanges{
 		exchange{
 			in{keepalive.New(false)},
 			out{},
