@@ -14,8 +14,7 @@ func TestFireAndForgetFrameEncoding(t *testing.T) {
 	data := []byte{4,5,6}
 	var streamId uint32 = 1337
 
-	f := &frame.Frame{}
-	request.Encode(f, streamId, flags, header.FTFireAndForget, metadata, data)
+	f := request.New(streamId, flags, header.FTFireAndForget, metadata, data)
 
 	if request.InitialRequestN(f) != 0 {
 		t.Errorf("Expected initial request N to be %d, found %s", 0, request.InitialRequestN(f))

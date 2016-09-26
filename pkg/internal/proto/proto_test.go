@@ -12,9 +12,9 @@ func TestKeepAliveRespond(t *testing.T) {
 	r := recorder{}
 	p := proto.NewProtocol(nil, r.Record)
 
-	p.HandleFrame(keepalive.Encode(nil, true))
+	p.HandleFrame(keepalive.New(true))
 
-	r.Expect(t, keepalive.Encode(nil, false))
+	r.Expect(t, keepalive.New(false))
 }
 
 
@@ -22,7 +22,7 @@ func TestKeepAliveDontRespond(t *testing.T) {
 	r := recorder{}
 	p := proto.NewProtocol(nil, r.Record)
 
-	p.HandleFrame(keepalive.Encode(nil, false))
+	p.HandleFrame(keepalive.New(false))
 
 	r.Expect(t) // Eg. no responses
 }

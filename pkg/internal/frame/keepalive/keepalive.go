@@ -6,9 +6,11 @@ import (
 )
 
 func Encode(target *frame.Frame, respond bool) *frame.Frame {
-	if target == nil {
-		target = &frame.Frame{}
-	}
 	keepalive.Encode(&target.Buf, respond)
 	return target
+}
+
+func New(respond bool) *frame.Frame {
+	f := &frame.Frame{}
+	return Encode(f, respond)
 }
