@@ -7,12 +7,20 @@ import (
 	"fmt"
 )
 
-func Encode(target *frame.Frame, streamId uint32, flags, frameType uint16, metadata, data []byte) {
+func Encode(target *frame.Frame, streamId uint32, flags, frameType uint16, metadata, data []byte) *frame.Frame {
+	if target == nil {
+		target = &frame.Frame{}
+	}
 	request.Encode(&target.Buf, streamId, flags, frameType, metadata, data)
+	return target
 }
 
-func EncodeWithInitialN(target *frame.Frame, streamId, initialN uint32, flags, frameType uint16, metadata, data []byte) {
+func EncodeWithInitialN(target *frame.Frame, streamId, initialN uint32, flags, frameType uint16, metadata, data []byte) *frame.Frame {
+	if target == nil {
+		target = &frame.Frame{}
+	}
 	request.EncodeWithInitialN(&target.Buf, streamId, initialN, flags, frameType, metadata, data)
+	return target
 }
 
 func InitialRequestN(f *frame.Frame) uint32 {

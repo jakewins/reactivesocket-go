@@ -7,8 +7,15 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/keepalive"
 )
 
+// Frame is our single data container, it can take the shape of any
+// frame type in the protocol, and is the structure we use to re-use
+// data. While the struct itself contains some basic operators (like
+// the ability to determine the type of the frame), most read operations
+// are performed via the frame type-specific packages below this level,
+// like `frame/setup`.
 type Frame struct {
 	// This is a slice that is sized to fit the current frame
 	Buf []byte
@@ -20,6 +27,10 @@ func (f *Frame) Type() uint16 {
 
 func (f *Frame) StreamID() uint32 {
 	return header.StreamID(f.Buf)
+}
+
+func (f *Frame) Flags() uint16 {
+	return header.Flags(f.Buf)
 }
 
 func (f *Frame) Data() []byte {
@@ -38,6 +49,28 @@ func (f *Frame) Metadata() []byte {
 		return nil
 	}
 	return f.Buf[metadataOffset:metadataOffset+metadataLength]
+}
+
+// Make a copy of this frame. If target is provided, it will be
+// used (potentially after resizing). If target is nil, a new
+// frame will be allocated.
+func (f *Frame) Copy(target *Frame) *Frame {
+	if target == nil {
+		target = &Frame{Buf:make([]byte, len(f.Buf))}
+	}
+	header.ResizeSlice(&target.Buf, len(f.Buf))
+	copy(target.Buf, f.Buf)
+	return target
+}
+
+// Get a human-readable description of this frame
+func (f *Frame) Describe() string {
+	switch f.Type() {
+	case header.FTKeepAlive:
+		return keepalive.Describe(f.Buf)
+	default:
+		return fmt.Sprintf("UnknownFrame{%d, contents=% x}", f.Type(), f.Buf)
+	}
 }
 
 func (f *Frame) dataLength() int {
@@ -66,6 +99,9 @@ func (f *Frame) payloadOffset() int {
 	case header.FTRequestSubscription:
 		return request.PayloadOffsetWithInitialN(f.Buf)
 	}
+	// TODO, I don't think we should use Panic like this; it's a legitimate
+	//       condition that the remote implementation may send us invalid
+	//       data, we should fail gracefully from that.
 	panic(fmt.Sprintf("Unknown frame type: %d", f.Type()))
 }
 

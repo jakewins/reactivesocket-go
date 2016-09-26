@@ -18,6 +18,7 @@ const (
 
 const (
 	FlagHasMetadata uint16 = 1 << 15
+	FlagKeepaliveRespond = 1 << 13
 )
 
 const (

@@ -12,9 +12,13 @@ const (
 )
 
 func Encode(target *frame.Frame, flags uint16, keepaliveInterval, maxLifetime uint32,
-                metadataMimeType, dataMimeType string, metadata, data []byte) {
+                metadataMimeType, dataMimeType string, metadata, data []byte) *frame.Frame {
+	if target == nil {
+		target = &frame.Frame{}
+	}
 	setup.Encode(&target.Buf, flags, keepaliveInterval, maxLifetime, metadataMimeType,
 		dataMimeType, metadata, data)
+	return target
 }
 
 func Flags(f *frame.Frame) uint16 {
