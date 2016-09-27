@@ -23,6 +23,9 @@ type Protocol struct {
 	// it beyond this call.
 	Send func(*frame.Frame)
 
+	// Only manipulated from HandleFrame, so no synchronization
+	streams map[uint32]rs.Subscriber
+
 	// Protects f from concurrent application messages
 	lock sync.Mutex
 
@@ -37,10 +40,12 @@ func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame)) *Protocol {
 	return &Protocol{
 		Handler: h,
 		Send:    send,
+		streams: make(map[uint32]rs.Subscriber, 16),
 		f:       &frame.Frame{},
 	}
 }
 
+// This method is not goroutine safe
 func (self *Protocol) HandleFrame(f *frame.Frame) {
 	switch f.Type() {
 	case header.FTRequestChannel:
@@ -56,6 +61,7 @@ func (self *Protocol) HandleFrame(f *frame.Frame) {
 func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 	var streamId = f.StreamID()
 	self.Handler.HandleChannel(f, rs.NewPublisher(func(s rs.Subscriber) {
+		self.streams[streamId] = s
 		s.OnSubscribe(rs.NewSubscription(func(n int) {
 			self.lock.Lock()
 			defer self.lock.Unlock()
@@ -71,5 +77,10 @@ func (self *Protocol) handleKeepAlive(f *frame.Frame) {
 	}
 }
 func (self *Protocol) handleResponse(f *frame.Frame) {
-
+	var subscriber = self.streams[f.StreamID()]
+	if subscriber == nil {
+		// TODO: need to sort out protocol deal here
+		return
+	}
+	subscriber.OnNext(f)
 }

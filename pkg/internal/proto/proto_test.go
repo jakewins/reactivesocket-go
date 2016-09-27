@@ -57,8 +57,11 @@ var scenarios = []scenario{
 				out{requestn.New(1337, 2)},
 			},
 			exchange{
-				in{response.New(1337, 0, nil, nil)},
-				out{},
+				in{ // Our stub client fulfills the request
+					response.New(1337, 0, nil, nil),
+					response.New(1337, 0, nil, nil)},
+				out{ // Server should have seen them, and blackhole will req 2 more
+					requestn.New(1337, 2)},
 			},
 		},
 	},
