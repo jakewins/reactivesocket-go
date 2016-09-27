@@ -26,6 +26,9 @@ type Protocol struct {
 }
 
 func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame)) *Protocol {
+	if h == nil {
+		panic("Cannot create protocol instance with a nil RequestHandler, please provice a non-nil handler.")
+	}
 	return &Protocol{
 		Handler: h,
 		Send:    send,
@@ -44,9 +47,9 @@ func (self *Protocol) HandleFrame(f *frame.Frame) {
 	}
 }
 func (self *Protocol) handleRequestChannel(f *frame.Frame) {
-	// uhhhh
-	// so
-	self.Handler.HandleChannel(f, nil)
+	self.Handler.HandleChannel(f, rs.NewPublisher(func(s rs.Subscriber) {
+
+	}))
 }
 func (self *Protocol) handleKeepAlive(f *frame.Frame) {
 	if f.Flags()&header.FlagKeepaliveRespond != 0 {

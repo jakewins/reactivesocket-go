@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"testing"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 )
 
 type scenario struct {
@@ -19,10 +21,15 @@ type exchange struct {
 	in  []*frame.Frame
 	out []*frame.Frame
 }
+type in []*frame.Frame
+type out []*frame.Frame
+type exchanges []exchange
+
+var noopHandler = &rs.RequestHandler{}
 
 var scenarios = []scenario{
 	{
-		"Simple keepalive(response plz) -> keepalive", nil, exchanges{
+		"Simple keepalive(response plz) -> keepalive", noopHandler, exchanges{
 			exchange{
 				in{keepalive.New(true)},
 				out{keepalive.New(false)},
@@ -30,23 +37,29 @@ var scenarios = []scenario{
 		},
 	},
 	{
-		"Keepalive with no response", nil, exchanges{
+		"Keepalive with no response", noopHandler, exchanges{
 			exchange{
 				in{keepalive.New(false)},
 				out{},
 			},
 		},
 	},
+	{
+		"RequestChannel", &rs.RequestHandler{
+		  HandleChannel: channelFactory(blackhole, sequencer),
+		}, exchanges{
+			exchange{
+				in{request.New(1, 0, header.FTRequestChannel, nil, nil)},
+				out{},
+			},
+		},
+	},
 }
-
-type in []*frame.Frame
-type out []*frame.Frame
-type exchanges []exchange
 
 func TestScenarios(t *testing.T) {
 	for _, scenario := range scenarios {
 		r := recorder{}
-		p := proto.NewProtocol(nil, r.Record)
+		p := proto.NewProtocol(scenario.handler, r.Record)
 
 		for _, exchange := range scenario.exchanges {
 			for _, f := range exchange.in {
@@ -86,4 +99,40 @@ func (r *recorder) AssertRecorded(expected []*frame.Frame) error {
 		}
 	}
 	return nil
+}
+
+// Creates channels that spit out incrementing sequences of numbers
+func sequencer(init rs.Payload) rs.Publisher {
+	var seq int = 0
+	return rs.NewPublisher(func(s rs.Subscriber) {
+			s.OnSubscribe((&rs.SubscriptionParts{
+				Request:func(n int) {
+					for ; seq < seq + n; seq++ {
+						s.OnNext(seq)
+					}
+				},
+				Cancel:func() {
+					s.OnComplete()
+				},
+			}).Build())
+	})
+}
+// Creates publishers that indefinitely request and discards messages
+func blackhole(source rs.Publisher) {
+	var subscription rs.Subscription
+	source.Subscribe((&rs.SubscriberParts{
+		OnSubscribe: func(s rs.Subscription) {
+			s.Request(1)
+			subscription = s
+		},
+		OnNext: func(v interface{}) {
+			subscription.Request(1)
+		},
+	}).Build())
+}
+func channelFactory(in func(rs.Publisher), out func(rs.Payload) rs.Publisher) func(rs.Payload, rs.Publisher) rs.Publisher {
+	return func(init rs.Payload, source rs.Publisher) rs.Publisher {
+		in(source)
+		return out(init)
+	}
 }
