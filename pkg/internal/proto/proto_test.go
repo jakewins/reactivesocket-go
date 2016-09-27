@@ -2,6 +2,7 @@ package proto_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
@@ -25,7 +26,7 @@ type out []*frame.Frame
 type exchanges []exchange
 
 var noopHandler = &rs.RequestHandler{}
-var infinity = math.MaxInt64
+var infinity uint32 = math.MaxUint32
 
 var scenarios = []scenario{
 	{
@@ -46,7 +47,7 @@ var scenarios = []scenario{
 	},
 	{
 		"RequestChannel where server requests some values, no ending", &rs.RequestHandler{
-			HandleChannel: channelFactory(blackhole(2, infinity), sequencer(0, infinity)),
+			HandleChannel: channelFactory(blackhole(2, 1000), sequencer(0, infinity)),
 		}, exchanges{
 			exchange{
 				in{frame.Request(1337, 0, header.FTRequestChannel, nil, nil)},
@@ -58,6 +59,19 @@ var scenarios = []scenario{
 					frame.Response(1337, 0, nil, nil)},
 				out{ // Server should have seen them, and blackhole will req 2 more
 					frame.RequestN(1337, 2)},
+			},
+		},
+	},
+	{
+		"RequestChannel where client requests some values, no ending", &rs.RequestHandler{
+			HandleChannel: channelFactory(wall, sequencer(0, infinity)),
+		}, exchanges{
+			exchange{
+				in{frame.Request(1337, 0, header.FTRequestChannel, nil, nil),
+					frame.RequestN(1337, 2)},
+				out{ // Our sequencer should immediately yield the two requested values:
+					frame.Response(1337, 0, nil, []byte{0, 0, 0, 0}),
+					frame.Response(1337, 0, nil, []byte{0, 0, 0, 1})},
 			},
 		},
 	},
@@ -110,9 +124,9 @@ func (r *recorder) AssertRecorded(expected []*frame.Frame) error {
 }
 
 // Creates channels that spit out incrementing sequences of numbers
-func sequencer(start, end int) func(rs.Payload) rs.Publisher {
+func sequencer(start, end uint32) func(rs.Payload) rs.Publisher {
 	return func(init rs.Payload) rs.Publisher {
-		var seq int = start
+		var seq uint32 = start
 		return rs.NewPublisher(func(s rs.Subscriber) {
 			s.OnSubscribe(rs.NewSubscription(
 				func(n int) {
@@ -120,12 +134,14 @@ func sequencer(start, end int) func(rs.Payload) rs.Publisher {
 						return
 					}
 
-					for ; seq < seq+n; seq++ {
+					for end := seq + uint32(n); seq < end; seq++ {
 						if seq >= end {
 							s.OnComplete()
 							return
 						}
-						s.OnNext(seq)
+						var data = make([]byte, 4)
+						binary.BigEndian.PutUint32(data, seq)
+						s.OnNext(rs.NewPayload(nil, data))
 					}
 				},
 				func() {
@@ -137,7 +153,7 @@ func sequencer(start, end int) func(rs.Payload) rs.Publisher {
 	}
 }
 
-// Creates publishers that request and discard in chunks specified by
+// Creates subscribers that request and discard in chunks specified by
 // requestSize, cancelling the subscription if at cancelAt messages
 func blackhole(requestSize, cancelAt int) func(rs.Publisher) {
 	return func(source rs.Publisher) {
@@ -167,6 +183,19 @@ func blackhole(requestSize, cancelAt int) func(rs.Publisher) {
 		))
 	}
 }
+
+// A subscriber that never requests anything - like talking to a wall
+func wall(source rs.Publisher) {
+	source.Subscribe(rs.NewSubscriber(
+		func(s rs.Subscription) {
+			// Never actually request anything
+		},
+		func(v interface{}) {
+			// Dont react to inbound messages
+		}, nil, nil,
+	))
+}
+
 func channelFactory(in func(rs.Publisher), out func(rs.Payload) rs.Publisher) func(rs.Payload, rs.Publisher) rs.Publisher {
 	return func(init rs.Payload, source rs.Publisher) rs.Publisher {
 		in(source)
