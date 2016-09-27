@@ -5,6 +5,7 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 )
 
@@ -47,8 +48,14 @@ func (self *Protocol) HandleFrame(f *frame.Frame) {
 	}
 }
 func (self *Protocol) handleRequestChannel(f *frame.Frame) {
+	var streamId = f.StreamID()
 	self.Handler.HandleChannel(f, rs.NewPublisher(func(s rs.Subscriber) {
+		s.OnSubscribe(rs.NewSubscription(func(n int) {
+			// TODO: This will not work. need to think on races..
+			self.Send(requestn.Encode(self.f, streamId, uint32(n)))
+		}, func() {
 
+		}))
 	}))
 }
 func (self *Protocol) handleKeepAlive(f *frame.Frame) {

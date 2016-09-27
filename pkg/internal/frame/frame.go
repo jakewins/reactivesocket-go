@@ -5,6 +5,7 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/keepalive"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/requestn"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
 	"io"
 )
@@ -67,8 +68,10 @@ func (f *Frame) Describe() string {
 	switch f.Type() {
 	case header.FTKeepAlive:
 		return keepalive.Describe(f.Buf)
+	case header.FTRequestN:
+		return requestn.Describe(f.Buf)
 	default:
-		return fmt.Sprintf("UnknownFrame{%d, contents=% x}", f.Type(), f.Buf)
+		return fmt.Sprintf("UnknownFrame{type=%d, contents=% x}", f.Type(), f.Buf)
 	}
 }
 
@@ -97,6 +100,8 @@ func (f *Frame) payloadOffset() int {
 		return request.PayloadOffsetWithInitialN(f.Buf)
 	case header.FTRequestSubscription:
 		return request.PayloadOffsetWithInitialN(f.Buf)
+	case header.FTRequestN:
+		return requestn.PayloadOffset()
 	}
 	// TODO, I don't think we should use Panic like this; it's a legitimate
 	//       condition that the remote implementation may send us invalid
