@@ -46,10 +46,11 @@ type Subscription interface {
 
 type SubscriberParts struct {
 	OnSubscribe func(Subscription)
-	OnNext func(interface{})
-	OnError func(error)
-	OnComplete func()
+	OnNext      func(interface{})
+	OnError     func(error)
+	OnComplete  func()
 }
+
 // Fills in any nil functions
 func (s *SubscriberParts) Build() Subscriber {
 	if s.OnError == nil {
@@ -65,9 +66,11 @@ func (s *SubscriberParts) Build() Subscriber {
 	}
 	return &assembledSubscriber{s}
 }
+
 type assembledSubscriber struct {
 	parts *SubscriberParts
 }
+
 func (as *assembledSubscriber) OnSubscribe(s Subscription) {
 	as.parts.OnSubscribe(s)
 }
@@ -83,14 +86,17 @@ func (as *assembledSubscriber) OnComplete() {
 
 type SubscriptionParts struct {
 	Request func(int)
-	Cancel func()
+	Cancel  func()
 }
+
 func (s *SubscriptionParts) Build() Subscription {
 	return &assembledSubscription{s}
 }
+
 type assembledSubscription struct {
 	parts *SubscriptionParts
 }
+
 func (as *assembledSubscription) Request(n int) {
 	as.parts.Request(n)
 }
@@ -101,9 +107,11 @@ func (as *assembledSubscription) Cancel() {
 func NewPublisher(subscribe func(Subscriber)) Publisher {
 	return &anonymousPublisher{subscribe}
 }
+
 type anonymousPublisher struct {
 	subscribe func(Subscriber)
 }
+
 func (a *anonymousPublisher) Subscribe(s Subscriber) {
 	a.subscribe(s)
 }

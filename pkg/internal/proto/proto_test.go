@@ -3,13 +3,13 @@ package proto_test
 import (
 	"bytes"
 	"fmt"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"testing"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 )
 
 type scenario struct {
@@ -46,7 +46,7 @@ var scenarios = []scenario{
 	},
 	{
 		"RequestChannel", &rs.RequestHandler{
-		  HandleChannel: channelFactory(blackhole, sequencer),
+			HandleChannel: channelFactory(blackhole, sequencer),
 		}, exchanges{
 			exchange{
 				in{request.New(1, 0, header.FTRequestChannel, nil, nil)},
@@ -105,18 +105,19 @@ func (r *recorder) AssertRecorded(expected []*frame.Frame) error {
 func sequencer(init rs.Payload) rs.Publisher {
 	var seq int = 0
 	return rs.NewPublisher(func(s rs.Subscriber) {
-			s.OnSubscribe((&rs.SubscriptionParts{
-				Request:func(n int) {
-					for ; seq < seq + n; seq++ {
-						s.OnNext(seq)
-					}
-				},
-				Cancel:func() {
-					s.OnComplete()
-				},
-			}).Build())
+		s.OnSubscribe((&rs.SubscriptionParts{
+			Request: func(n int) {
+				for ; seq < seq+n; seq++ {
+					s.OnNext(seq)
+				}
+			},
+			Cancel: func() {
+				s.OnComplete()
+			},
+		}).Build())
 	})
 }
+
 // Creates publishers that indefinitely request and discards messages
 func blackhole(source rs.Publisher) {
 	var subscription rs.Subscription
