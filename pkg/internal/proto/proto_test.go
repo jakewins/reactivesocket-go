@@ -8,6 +8,7 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/response"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"math"
@@ -55,6 +56,10 @@ var scenarios = []scenario{
 				in{request.New(1337, 0, header.FTRequestChannel, nil, nil)},
 				out{requestn.New(1337, 2)},
 			},
+			exchange{
+				in{response.New(1337, 0, nil, nil)},
+				out{},
+			},
 		},
 	},
 }
@@ -71,6 +76,7 @@ func TestScenarios(t *testing.T) {
 			if err := r.AssertRecorded(exchange.out); err != nil {
 				t.Errorf("Scenario `%s` failed: \n%s", scenario.name, err.Error())
 			}
+			r.Rewind()
 		}
 	}
 }

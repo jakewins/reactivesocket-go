@@ -6,6 +6,7 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/keepalive"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/requestn"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/response"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/setup"
 	"io"
 )
@@ -24,31 +25,17 @@ type Frame struct {
 func (f *Frame) Type() uint16 {
 	return header.FrameType(f.Buf)
 }
-
 func (f *Frame) StreamID() uint32 {
 	return header.StreamID(f.Buf)
 }
-
 func (f *Frame) Flags() uint16 {
 	return header.Flags(f.Buf)
 }
-
 func (f *Frame) Data() []byte {
-	dataLength := f.dataLength()
-	dataOffset := f.dataOffset()
-	if 0 == dataLength {
-		return nil
-	}
-	return f.Buf[dataOffset : dataOffset+dataLength]
+	return header.Data(f.Buf, f.payloadOffset)
 }
-
 func (f *Frame) Metadata() []byte {
-	metadataLength := max(0, f.metadataFieldLength()-header.SizeOfInt)
-	metadataOffset := f.payloadOffset() + header.SizeOfInt
-	if 0 == metadataLength {
-		return nil
-	}
-	return f.Buf[metadataOffset : metadataOffset+metadataLength]
+	return header.Metadata(f.Buf, f.payloadOffset)
 }
 
 // Make a copy of this frame. If target is provided, it will be
@@ -70,20 +57,11 @@ func (f *Frame) Describe() string {
 		return keepalive.Describe(f.Buf)
 	case header.FTRequestN:
 		return requestn.Describe(f.Buf)
+	case header.FTResponse:
+		return response.Describe(f.Buf)
 	default:
 		return fmt.Sprintf("UnknownFrame{type=%d, contents=% x}", f.Type(), f.Buf)
 	}
-}
-
-func (f *Frame) dataLength() int {
-	frameLength := len(f.Buf)
-	metadataLength := f.metadataFieldLength()
-	return frameLength - metadataLength - f.payloadOffset()
-}
-
-// Return the byte offset where data starts in any given Frame
-func (f *Frame) dataOffset() int {
-	return f.payloadOffset() + f.metadataFieldLength()
 }
 
 func (f *Frame) payloadOffset() int {
@@ -102,6 +80,8 @@ func (f *Frame) payloadOffset() int {
 		return request.PayloadOffsetWithInitialN(f.Buf)
 	case header.FTRequestN:
 		return requestn.PayloadOffset()
+	case header.FTResponse:
+		return response.PayloadOffset()
 	}
 	// TODO, I don't think we should use Panic like this; it's a legitimate
 	//       condition that the remote implementation may send us invalid
@@ -110,12 +90,10 @@ func (f *Frame) payloadOffset() int {
 }
 
 func (f *Frame) metadataFieldLength() int {
-	if header.Flags(f.Buf)&header.FlagHasMetadata == 0 {
-		return 0
-	}
-
-	return int(header.Uint32(f.Buf, f.payloadOffset()))
+	return header.MetadataFieldLength(f.Buf, f.payloadOffset)
 }
+
+// Frame encoder/decoder below should be moved out of here
 
 type FrameDecoder struct {
 	source io.Reader
@@ -179,11 +157,4 @@ func (e *FrameEncoder) writeFrameLength(frame *Frame) error {
 
 	_, err := e.sink.Write(e.frameLengthScratch)
 	return err
-}
-
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
 }

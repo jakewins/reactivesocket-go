@@ -85,6 +85,39 @@ func FrameType(b []byte) uint16 {
 func StreamID(b []byte) uint32 {
 	return Uint32(b, streamIdFieldOffset)
 }
+func DataOffset(buf []byte, payloadOffset func() int) int {
+	return payloadOffset() + MetadataFieldLength(buf, payloadOffset)
+}
+func MetadataFieldLength(buf []byte, payloadOffset func() int) int {
+	if Flags(buf)&FlagHasMetadata == 0 {
+		return 0
+	}
+
+	return int(Uint32(buf, payloadOffset()))
+}
+func Metadata(buf []byte, payloadOffset func() int) []byte {
+	metadataLength := max(0, MetadataFieldLength(buf, payloadOffset)-SizeOfInt)
+	if 0 == metadataLength {
+		return nil
+	}
+	metadataOffset := payloadOffset() + SizeOfInt
+	return buf[metadataOffset : metadataOffset+metadataLength]
+}
+func Data(buf []byte, payloadOffset func() int) []byte {
+	dataLength := dataLength(buf, payloadOffset)
+	if 0 == dataLength {
+		return nil
+	}
+
+	dataOffset := DataOffset(buf, payloadOffset)
+	return buf[dataOffset : dataOffset+dataLength]
+}
+
+func dataLength(buf []byte, payloadOffset func() int) int {
+	frameLength := len(buf)
+	metadataLength := MetadataFieldLength(buf, payloadOffset)
+	return frameLength - metadataLength - payloadOffset()
+}
 
 func EncodeMetaDataAndData(buf, metadata, data []byte, offset int, flags uint16) {
 	if flags&FlagHasMetadata != 0 {
@@ -137,4 +170,11 @@ func ResizeSlice(slicePtr *[]byte, ensure int) []byte {
 	// Replace the slice struct with one that's limited to the set length
 	*slicePtr = (*slicePtr)[:ensure]
 	return *slicePtr
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
 }

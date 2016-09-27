@@ -47,6 +47,8 @@ func (self *Protocol) HandleFrame(f *frame.Frame) {
 		self.handleRequestChannel(f)
 	case header.FTKeepAlive:
 		self.handleKeepAlive(f)
+	case header.FTResponse:
+		self.handleResponse(f)
 	default:
 		panic(fmt.Sprintf("Unknown frame: %d", f.Type()))
 	}
@@ -67,4 +69,7 @@ func (self *Protocol) handleKeepAlive(f *frame.Frame) {
 	if f.Flags()&header.FlagKeepaliveRespond != 0 {
 		self.Send(keepalive.Encode(self.f, false))
 	}
+}
+func (self *Protocol) handleResponse(f *frame.Frame) {
+
 }
