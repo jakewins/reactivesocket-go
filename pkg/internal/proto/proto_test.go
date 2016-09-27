@@ -105,31 +105,29 @@ func (r *recorder) AssertRecorded(expected []*frame.Frame) error {
 func sequencer(init rs.Payload) rs.Publisher {
 	var seq int = 0
 	return rs.NewPublisher(func(s rs.Subscriber) {
-		s.OnSubscribe((&rs.SubscriptionParts{
-			Request: func(n int) {
+		s.OnSubscribe(rs.NewSubscription(
+			func(n int) {
 				for ; seq < seq+n; seq++ {
 					s.OnNext(seq)
 				}
 			},
-			Cancel: func() {
-				s.OnComplete()
-			},
-		}).Build())
+			func() { s.OnComplete() },
+		))
 	})
 }
 
 // Creates publishers that indefinitely request and discards messages
 func blackhole(source rs.Publisher) {
 	var subscription rs.Subscription
-	source.Subscribe((&rs.SubscriberParts{
-		OnSubscribe: func(s rs.Subscription) {
+	source.Subscribe(rs.NewSubscriber(
+		func(s rs.Subscription) {
 			s.Request(1)
 			subscription = s
 		},
-		OnNext: func(v interface{}) {
+		func(v interface{}) {
 			subscription.Request(1)
-		},
-	}).Build())
+		}, nil, nil,
+	))
 }
 func channelFactory(in func(rs.Publisher), out func(rs.Payload) rs.Publisher) func(rs.Payload, rs.Publisher) rs.Publisher {
 	return func(init rs.Payload, source rs.Publisher) rs.Publisher {

@@ -40,68 +40,67 @@ type Subscription interface {
 	Cancel()
 }
 
-// Don't really like below, tried to build a DSL that'd let you
-// specify named functions to create anonymous streams easily.
-// Not super happy with result.
-
-type SubscriberParts struct {
-	OnSubscribe func(Subscription)
-	OnNext      func(interface{})
-	OnError     func(error)
-	OnComplete  func()
-}
-
-// Fills in any nil functions
-func (s *SubscriberParts) Build() Subscriber {
-	if s.OnError == nil {
-		s.OnError = func(e error) {
-			fmt.Printf("Unhandled error: %s", e.Error())
+func NewSubscriber(onSubscribe func(Subscription), onNext func(interface{}),
+	onError func(error), onComplete func()) Subscriber {
+	if onSubscribe == nil {
+		panic("Cannot create an anonymous subscriber without the onSubscribe" +
+			"function - the other functions are optional, but without this the " +
+			"subscriber cannot work.")
+	}
+	if onNext == nil {
+		onNext = func(v interface{}) {}
+	}
+	if onComplete == nil {
+		onComplete = func() {}
+	}
+	if onError == nil {
+		onError = func(e error) {
+			fmt.Printf("Unhandled error in anonymous subscriber: %s", e.Error())
 		}
 	}
-	if s.OnNext == nil {
-		s.OnNext = func(v interface{}) {}
+	return &anonymousSubscriber{onSubscribe, onNext, onError, onComplete}
+}
+
+type anonymousSubscriber struct {
+	onSubscribe func(Subscription)
+	onNext      func(interface{})
+	onError     func(error)
+	onComplete  func()
+}
+
+func (as *anonymousSubscriber) OnSubscribe(s Subscription) {
+	as.onSubscribe(s)
+}
+func (as *anonymousSubscriber) OnNext(v interface{}) {
+	as.onNext(v)
+}
+func (as *anonymousSubscriber) OnError(e error) {
+	as.onError(e)
+}
+func (as *anonymousSubscriber) OnComplete() {
+	as.onComplete()
+}
+
+func NewSubscription(request func(int), cancel func()) Subscription {
+	if request == nil {
+		panic("Cannot create a subscription without request function implemented.")
 	}
-	if s.OnComplete == nil {
-		s.OnComplete = func() {}
+	if cancel == nil {
+		panic("Cannot create a subscription without cancel function implemented.")
 	}
-	return &assembledSubscriber{s}
+	return &anonymousSubscription{request, cancel}
 }
 
-type assembledSubscriber struct {
-	parts *SubscriberParts
+type anonymousSubscription struct {
+	request func(int)
+	cancel  func()
 }
 
-func (as *assembledSubscriber) OnSubscribe(s Subscription) {
-	as.parts.OnSubscribe(s)
+func (as *anonymousSubscription) Request(n int) {
+	as.request(n)
 }
-func (as *assembledSubscriber) OnNext(v interface{}) {
-	as.parts.OnNext(v)
-}
-func (as *assembledSubscriber) OnError(e error) {
-	as.parts.OnError(e)
-}
-func (as *assembledSubscriber) OnComplete() {
-	as.parts.OnComplete()
-}
-
-type SubscriptionParts struct {
-	Request func(int)
-	Cancel  func()
-}
-
-func (s *SubscriptionParts) Build() Subscription {
-	return &assembledSubscription{s}
-}
-
-type assembledSubscription struct {
-	parts *SubscriptionParts
-}
-
-func (as *assembledSubscription) Request(n int) {
-	as.parts.Request(n)
-}
-func (as *assembledSubscription) Cancel() {
-	as.parts.Cancel()
+func (as *anonymousSubscription) Cancel() {
+	as.cancel()
 }
 
 func NewPublisher(subscribe func(Subscriber)) Publisher {
