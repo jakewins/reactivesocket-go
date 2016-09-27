@@ -14,7 +14,7 @@ func TestFireAndForgetFrameEncoding(t *testing.T) {
 	data := []byte{4, 5, 6}
 	var streamId uint32 = 1337
 
-	f := request.New(streamId, flags, header.FTFireAndForget, metadata, data)
+	f := frame.Request(streamId, flags, header.FTFireAndForget, metadata, data)
 
 	if request.InitialRequestN(f) != 0 {
 		t.Errorf("Expected initial request N to be %d, found %s", 0, request.InitialRequestN(f))
@@ -42,8 +42,7 @@ func TestRequestResponseFrameEncoding(t *testing.T) {
 	data := []byte{4, 5, 6}
 	var streamId uint32 = 1337
 
-	f := &frame.Frame{}
-	request.Encode(f, streamId, flags, header.FTRequestResponse, metadata, data)
+	f := frame.Request(streamId, flags, header.FTRequestResponse, metadata, data)
 
 	if request.InitialRequestN(f) != 1 {
 		t.Errorf("Expected initial request N to be %d, found %s", 1, request.InitialRequestN(f))
@@ -72,8 +71,7 @@ func TestRequestChannelFrameEncoding(t *testing.T) {
 	var streamId uint32 = 7331
 	var initialRequestN uint32 = 1338
 
-	f := &frame.Frame{}
-	request.EncodeWithInitialN(f, streamId, initialRequestN, flags, header.FTRequestChannel, metadata, data)
+	f := frame.RequestWithInitialN(streamId, initialRequestN, flags, header.FTRequestChannel, metadata, data)
 
 	if request.InitialRequestN(f) != initialRequestN {
 		t.Errorf("Expected initial request N to be %d, found %d", initialRequestN, request.InitialRequestN(f))
@@ -102,8 +100,7 @@ func TestRequestStreamFrameEncoding(t *testing.T) {
 	var streamId uint32 = 7331
 	var initialRequestN uint32 = 1338
 
-	f := &frame.Frame{}
-	request.EncodeWithInitialN(f, streamId, initialRequestN, flags, header.FTRequestStream, metadata, data)
+	f := frame.RequestWithInitialN(streamId, initialRequestN, flags, header.FTRequestStream, metadata, data)
 
 	if request.InitialRequestN(f) != initialRequestN {
 		t.Errorf("Expected initial request N to be %d, found %d", initialRequestN, request.InitialRequestN(f))
@@ -132,8 +129,7 @@ func TestRequestSubscriptionFrameEncoding(t *testing.T) {
 	var streamId uint32 = 7331
 	var initialRequestN uint32 = 1338
 
-	f := &frame.Frame{}
-	request.EncodeWithInitialN(f, streamId, initialRequestN, flags, header.FTRequestSubscription, metadata, data)
+	f := frame.RequestWithInitialN(streamId, initialRequestN, flags, header.FTRequestSubscription, metadata, data)
 
 	if request.InitialRequestN(f) != initialRequestN {
 		t.Errorf("Expected initial request N to be %d, found %d", initialRequestN, request.InitialRequestN(f))

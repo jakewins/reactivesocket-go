@@ -10,18 +10,6 @@ const (
 	FlagStrictInterpretation = setup.SetupFlagStrictInterpretation
 )
 
-func Encode(target *frame.Frame, flags uint16, keepaliveInterval, maxLifetime uint32,
-	metadataMimeType, dataMimeType string, metadata, data []byte) *frame.Frame {
-	setup.Encode(&target.Buf, flags, keepaliveInterval, maxLifetime, metadataMimeType,
-		dataMimeType, metadata, data)
-	return target
-}
-
-func New(flags uint16, keepaliveInterval, maxLifetime uint32, metadataMimeType, dataMimeType string, metadata, data []byte) *frame.Frame {
-	f := &frame.Frame{}
-	return Encode(f, flags, keepaliveInterval, maxLifetime, metadataMimeType, dataMimeType, metadata, data)
-}
-
 func Flags(f *frame.Frame) uint16 {
 	return setup.Flags(f.Buf)
 }

@@ -3,6 +3,7 @@ package setup_test
 import (
 	"bytes"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/setup"
 	"testing"
 )
@@ -16,7 +17,7 @@ func TestSetupFrameEncoding(t *testing.T) {
 	data := []byte{4, 5, 6}
 	dataMime := "test/test+data"
 
-	f := setup.New(flags, keepaliveInterval, maxLifetime, metadataMime, dataMime, metadata, data)
+	f := frame.Setup(flags, keepaliveInterval, maxLifetime, metadataMime, dataMime, metadata, data)
 
 	if setup.Flags(f)&setup.FlagStrictInterpretation == 0 {
 		t.Error("Expected frame to have metadata flag set")

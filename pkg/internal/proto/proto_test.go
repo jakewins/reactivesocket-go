@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/response"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"math"
@@ -35,15 +31,15 @@ var scenarios = []scenario{
 	{
 		"Simple keepalive(response plz) -> keepalive", noopHandler, exchanges{
 			exchange{
-				in{keepalive.New(true)},
-				out{keepalive.New(false)},
+				in{frame.Keepalive(true)},
+				out{frame.Keepalive(false)},
 			},
 		},
 	},
 	{
 		"Keepalive with no response", noopHandler, exchanges{
 			exchange{
-				in{keepalive.New(false)},
+				in{frame.Keepalive(false)},
 				out{},
 			},
 		},
@@ -53,15 +49,15 @@ var scenarios = []scenario{
 			HandleChannel: channelFactory(blackhole(2, infinity), sequencer(0, infinity)),
 		}, exchanges{
 			exchange{
-				in{request.New(1337, 0, header.FTRequestChannel, nil, nil)},
-				out{requestn.New(1337, 2)},
+				in{frame.Request(1337, 0, header.FTRequestChannel, nil, nil)},
+				out{frame.RequestN(1337, 2)},
 			},
 			exchange{
 				in{ // Our stub client fulfills the request
-					response.New(1337, 0, nil, nil),
-					response.New(1337, 0, nil, nil)},
+					frame.Response(1337, 0, nil, nil),
+					frame.Response(1337, 0, nil, nil)},
 				out{ // Server should have seen them, and blackhole will req 2 more
-					requestn.New(1337, 2)},
+					frame.RequestN(1337, 2)},
 			},
 		},
 	},

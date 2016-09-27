@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/keepalive"
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"sync"
 )
@@ -65,7 +63,7 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 		s.OnSubscribe(rs.NewSubscription(func(n int) {
 			self.lock.Lock()
 			defer self.lock.Unlock()
-			self.Send(requestn.Encode(self.f, streamId, uint32(n)))
+			self.Send(frame.EncodeRequestN(self.f, streamId, uint32(n)))
 		}, func() {
 
 		}))
@@ -73,7 +71,7 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 }
 func (self *Protocol) handleKeepAlive(f *frame.Frame) {
 	if f.Flags()&header.FlagKeepaliveRespond != 0 {
-		self.Send(keepalive.Encode(self.f, false))
+		self.Send(frame.EncodeKeepalive(self.f, false))
 	}
 }
 func (self *Protocol) handleResponse(f *frame.Frame) {

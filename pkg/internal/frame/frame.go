@@ -93,6 +93,63 @@ func (f *Frame) metadataFieldLength() int {
 	return header.MetadataFieldLength(f.Buf, f.payloadOffset)
 }
 
+// Message creation
+// Note that these only create messages, reading message-specific fields
+// is done via the accessor methods under `frame/<msgtype>#..(*Frame)`
+func EncodeResponse(f *Frame, streamId uint32, flags uint16, metadata, data []byte) *Frame {
+	response.Encode(&f.Buf, streamId, flags, metadata, data)
+	return f
+}
+func EncodeSetup(f *Frame, flags uint16, keepaliveInterval, maxLifetime uint32,
+	metadataMimeType, dataMimeType string, metadata, data []byte) *Frame {
+	setup.Encode(&f.Buf, flags, keepaliveInterval, maxLifetime, metadataMimeType, dataMimeType, metadata, data)
+	return f
+}
+func EncodeKeepalive(f *Frame, respond bool) *Frame {
+	keepalive.Encode(&f.Buf, respond)
+	return f
+}
+func EncodeRequest(f *Frame, streamId uint32, flags, frameType uint16, metadata, data []byte) *Frame {
+	request.Encode(&f.Buf, streamId, flags, frameType, metadata, data)
+	return f
+}
+func EncodeRequestWithInitialN(f *Frame, streamId, initialN uint32, flags, frameType uint16, metadata, data []byte) *Frame {
+	request.EncodeWithInitialN(&f.Buf, streamId, initialN, flags, frameType, metadata, data)
+	return f
+}
+func EncodeRequestN(f *Frame, streamId, requestN uint32) *Frame {
+	requestn.Encode(&f.Buf, streamId, requestN)
+	return f
+}
+
+func Setup(flags uint16, keepaliveInterval, maxLifetime uint32,
+	metadataMimeType, dataMimeType string, metadata, data []byte) *Frame {
+	f := &Frame{}
+	EncodeSetup(f, flags, keepaliveInterval, maxLifetime, metadataMimeType, dataMimeType, metadata, data)
+	return f
+}
+func Response(streamId uint32, flags uint16, metadata, data []byte) *Frame {
+	f := &Frame{}
+	EncodeResponse(f, streamId, flags, metadata, data)
+	return f
+}
+func Keepalive(respond bool) *Frame {
+	f := &Frame{}
+	return EncodeKeepalive(f, respond)
+}
+func Request(streamId uint32, flags, frameType uint16, metadata, data []byte) *Frame {
+	f := &Frame{}
+	return EncodeRequest(f, streamId, flags, frameType, metadata, data)
+}
+func RequestWithInitialN(streamId, initialN uint32, flags, frameType uint16, metadata, data []byte) *Frame {
+	f := &Frame{}
+	return EncodeRequestWithInitialN(f, streamId, initialN, flags, frameType, metadata, data)
+}
+func RequestN(streamId, requestN uint32) *Frame {
+	f := &Frame{}
+	return EncodeRequestN(f, streamId, requestN)
+}
+
 // Frame encoder/decoder below should be moved out of here
 
 type FrameDecoder struct {
