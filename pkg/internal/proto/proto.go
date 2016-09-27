@@ -28,7 +28,7 @@ type Protocol struct {
 	// returns, the frame can be re-used. Any implementation of
 	// Send must copy the contents of Frame if it wishes to retain
 	// it beyond this call.
-	Send func(*frame.Frame)
+	Send func(*frame.Frame) error
 
 	// Only manipulated from HandleFrame, so no synchronization
 	streams map[uint32]*stream
@@ -40,7 +40,7 @@ type Protocol struct {
 	f *frame.Frame
 }
 
-func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame)) *Protocol {
+func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol {
 	if h == nil {
 		panic("Cannot create protocol instance with a nil RequestHandler, please provice a non-nil handler.")
 	}
@@ -81,7 +81,9 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 		s.OnSubscribe(rs.NewSubscription(func(n int) {
 			self.lock.Lock()
 			defer self.lock.Unlock()
-			self.Send(frame.EncodeRequestN(self.f, streamId, uint32(n)))
+			if err := self.Send(frame.EncodeRequestN(self.f, streamId, uint32(n))); err != nil {
+				panic(err.Error()) // TODO
+			}
 		}, func() {
 
 		}))
@@ -95,7 +97,9 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 			var p = val.(rs.Payload)
 			self.lock.Lock()
 			defer self.lock.Unlock()
-			self.Send(frame.EncodeResponse(self.f, streamId, 0, p.Metadata(), p.Data()))
+			if err := self.Send(frame.EncodeResponse(self.f, streamId, 0, p.Metadata(), p.Data())); err != nil {
+				panic(err.Error()) // TODO
+			}
 		},
 		func(err error) {
 

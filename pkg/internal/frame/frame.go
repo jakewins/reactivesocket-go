@@ -206,9 +206,6 @@ func (e *FrameEncoder) Write(frame *Frame) error {
 }
 
 func (e *FrameEncoder) writeFrameLength(frame *Frame) error {
-	if len(e.frameLengthScratch) != 4 {
-		e.frameLengthScratch = make([]byte, 4)
-	}
 	frameLength := uint32(len(frame.Buf) + header.SizeOfInt)
 	header.PutUint32(e.frameLengthScratch, 0, frameLength)
 

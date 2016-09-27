@@ -49,7 +49,9 @@ type conn struct {
 }
 
 func (c *conn) serve() {
+	// TODO This should wrap in buffered io
 	c.dec = frame.NewFrameDecoder(c.rwc)
+	c.enc = frame.NewFrameEncoder(c.rwc)
 
 	f := &c.frame
 
@@ -75,7 +77,13 @@ func (c *conn) serve() {
 		c.fatalError(err)
 	}
 
-	c.protocol = &proto.Protocol{Handler: handler}
+	c.protocol = &proto.Protocol{
+		Handler: handler,
+		Send: func(f *frame.Frame) error {
+			fmt.Printf("[Server] %s\n", f.Describe())
+			return c.enc.Write(f)
+		},
+	}
 
 	for {
 		if err := c.dec.Read(f); err != nil {
@@ -83,8 +91,7 @@ func (c *conn) serve() {
 			panic(err)
 		}
 
-		fmt.Printf("%+v\n", f)
-		fmt.Printf("Type: %d\n", f.Type())
+		fmt.Printf("[Client] %s\n", f.Describe())
 
 		c.protocol.HandleFrame(f)
 	}

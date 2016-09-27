@@ -98,8 +98,9 @@ type recorder struct {
 	recording []*frame.Frame
 }
 
-func (r *recorder) Record(f *frame.Frame) {
+func (r *recorder) Record(f *frame.Frame) error {
 	r.recording = append(r.recording, f.Copy(nil))
+	return nil
 }
 func (r *recorder) Rewind() {
 	r.recording = nil
