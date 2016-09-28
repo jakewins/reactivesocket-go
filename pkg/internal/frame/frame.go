@@ -59,6 +59,8 @@ func (f *Frame) Describe() string {
 		return requestn.Describe(f.Buf)
 	case header.FTResponse:
 		return response.Describe(f.Buf)
+	case header.FTFireAndForget:
+		return request.Describe(f.Buf)
 	case header.FTRequestChannel:
 		return request.Describe(f.Buf)
 	case header.FTRequestStream:

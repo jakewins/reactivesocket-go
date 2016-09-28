@@ -150,3 +150,21 @@ func TestRequestSubscriptionFrameEncoding(t *testing.T) {
 		t.Errorf("Expected frame length to be %d but found %d", 22, len(f.Buf))
 	}
 }
+
+func TestDecodeRealWorldRequest(t *testing.T) {
+	b := []byte{0x00, 0x08, 0x48, 0x00, 0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05,
+		0x6a, 0x69}
+
+	f := frame.Frame{Buf: b}
+
+	if f.StreamID() != 2 {
+		t.Errorf("Expected StreamID to be %d, found %d", 2, f.StreamID())
+	}
+	if !bytes.Equal(f.Metadata(), []byte{0x6a}) {
+		t.Errorf("Expected metadata to be [% x], found [% x]", []byte{0x6a}, f.Metadata())
+	}
+	if !bytes.Equal(f.Data(), []byte{0x69}) {
+		t.Errorf("Expected data to be [% x], found [% x]", []byte{0x69}, f.Data())
+	}
+}

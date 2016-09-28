@@ -33,11 +33,8 @@ type Protocol struct {
 	// Only manipulated from HandleFrame, so no synchronization
 	streams map[uint32]*stream
 
-	// Protects f from concurrent application messages
 	lock sync.Mutex
-
-	// Used by when Send(..)-ing messages
-	f *frame.Frame
+	f    *frame.Frame
 }
 
 func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol {
@@ -97,8 +94,7 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 		func(val rs.Payload) { // onNext
 			self.lock.Lock()
 			defer self.lock.Unlock()
-			if err := self.Send(frame.EncodeResponse(self.f, streamId, 0, val.Metadata(), val.Data()));
-				 err != nil {
+			if err := self.Send(frame.EncodeResponse(self.f, streamId, 0, val.Metadata(), val.Data())); err != nil {
 				panic(err.Error()) // TODO
 			}
 		},

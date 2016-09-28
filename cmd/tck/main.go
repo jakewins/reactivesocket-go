@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"github.com/jakewins/reactivesocket-go/pkg/transport/tcp"
 	"log"
@@ -115,6 +116,17 @@ func requestResponseInitializer(stuff map[string]map[string]string) func(rs.Payl
 
 func channelHandler(channels map[string]map[string][]string) func(rs.Payload, rs.Publisher) rs.Publisher {
 	return func(init rs.Payload, in rs.Publisher) rs.Publisher {
+		meta, data := string(init.Metadata()), string(init.Data())
+		fmt.Printf("Meta: %s, Data: %s", meta, data)
+		in.Subscribe(rs.NewSubscriber(
+			func(s rs.Subscription) {
+
+			},
+			func(v rs.Payload) {
+
+			},
+			nil, nil,
+		))
 
 		return rs.NewPublisher(func(sub rs.Subscriber) {
 
