@@ -94,11 +94,11 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 		func(subscription rs.Subscription) {
 			stream.out = subscription
 		},
-		func(val interface{}) { // onNext
-			var p = val.(rs.Payload)
+		func(val rs.Payload) { // onNext
 			self.lock.Lock()
 			defer self.lock.Unlock()
-			if err := self.Send(frame.EncodeResponse(self.f, streamId, 0, p.Metadata(), p.Data())); err != nil {
+			if err := self.Send(frame.EncodeResponse(self.f, streamId, 0, val.Metadata(), val.Data()));
+				 err != nil {
 				panic(err.Error()) // TODO
 			}
 		},

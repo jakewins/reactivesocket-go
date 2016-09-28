@@ -168,7 +168,7 @@ func blackhole(requestSize, cancelAt int) func(rs.Publisher) {
 				outstandingRequests += requestSize
 				subscription = s
 			},
-			func(v interface{}) {
+			func(v rs.Payload) {
 				remainingBeforeCancel -= 1
 				if remainingBeforeCancel <= 0 {
 					subscription.Cancel()
@@ -191,7 +191,7 @@ func wall(source rs.Publisher) {
 		func(s rs.Subscription) {
 			// Never actually request anything
 		},
-		func(v interface{}) {
+		func(v rs.Payload) {
 			// Dont react to inbound messages
 		}, nil, nil,
 	))

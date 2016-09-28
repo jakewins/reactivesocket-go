@@ -115,6 +115,7 @@ func requestResponseInitializer(stuff map[string]map[string]string) func(rs.Payl
 
 func channelHandler(channels map[string]map[string][]string) func(rs.Payload, rs.Publisher) rs.Publisher {
 	return func(init rs.Payload, in rs.Publisher) rs.Publisher {
+
 		return rs.NewPublisher(func(sub rs.Subscriber) {
 
 		})

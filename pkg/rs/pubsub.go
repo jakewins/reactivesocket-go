@@ -29,7 +29,14 @@ type Subscriber interface {
 	//       easier to subscribe to a publisher without implementing all the things..
 
 	OnSubscribe(s Subscription)
-	OnNext(v interface{})
+
+	// TODO: I really, really don't like hard-typing this, but I like v interface{}
+	//       even less; I'd want a generic way to describe typed streams..
+	//       For now, it seemed to make more sense to type these to match what
+	//       I need in this library, rather than try and export dumb copies of
+	//       the java interface..
+
+	OnNext(v Payload)
 	OnError(e error)
 	OnComplete()
 }
@@ -40,7 +47,7 @@ type Subscription interface {
 	Cancel()
 }
 
-func NewSubscriber(onSubscribe func(Subscription), onNext func(interface{}),
+func NewSubscriber(onSubscribe func(Subscription), onNext func(Payload),
 	onError func(error), onComplete func()) Subscriber {
 	if onSubscribe == nil {
 		panic("Cannot create an anonymous subscriber without the onSubscribe" +
@@ -48,7 +55,7 @@ func NewSubscriber(onSubscribe func(Subscription), onNext func(interface{}),
 			"subscriber cannot work.")
 	}
 	if onNext == nil {
-		onNext = func(v interface{}) {}
+		onNext = func(v Payload) {}
 	}
 	if onComplete == nil {
 		onComplete = func() {}
@@ -63,7 +70,7 @@ func NewSubscriber(onSubscribe func(Subscription), onNext func(interface{}),
 
 type anonymousSubscriber struct {
 	onSubscribe func(Subscription)
-	onNext      func(interface{})
+	onNext      func(Payload)
 	onError     func(error)
 	onComplete  func()
 }
@@ -71,7 +78,7 @@ type anonymousSubscriber struct {
 func (as *anonymousSubscriber) OnSubscribe(s Subscription) {
 	as.onSubscribe(s)
 }
-func (as *anonymousSubscriber) OnNext(v interface{}) {
+func (as *anonymousSubscriber) OnNext(v Payload) {
 	as.onNext(v)
 }
 func (as *anonymousSubscriber) OnError(e error) {
