@@ -47,7 +47,7 @@ func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol 
 	return &Protocol{
 		Handler: h,
 		Send:    send,
-		streams: make(map[uint32]*stream, 16),
+		streams: make(map[uint32]*stream),
 		f:       &frame.Frame{},
 	}
 }

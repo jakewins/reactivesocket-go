@@ -34,7 +34,10 @@ func (s *server) serve() error {
 		}
 
 		// TODO: Proper resource handling - close these guys on server close
-		c := &conn{rwc: rwc, setup: s.setup}
+		c := &conn{
+			rwc:   rwc,
+			setup: s.setup,
+		}
 		go c.serve()
 	}
 }
@@ -77,13 +80,13 @@ func (c *conn) serve() {
 		c.fatalError(err)
 	}
 
-	c.protocol = &proto.Protocol{
-		Handler: handler,
-		Send: func(f *frame.Frame) error {
+	c.protocol = proto.NewProtocol(
+		handler,
+		func(f *frame.Frame) error {
 			fmt.Printf("[Server] %s\n", f.Describe())
 			return c.enc.Write(f)
 		},
-	}
+	)
 
 	for {
 		if err := c.dec.Read(f); err != nil {

@@ -99,6 +99,7 @@ func runServer(port int, path string) {
 
 	handler := &rs.RequestHandler{
 		HandleRequestResponse: requestResponseInitializer(requestResponseMarbles),
+		HandleChannel:         channelHandler(channels),
 	}
 
 	log.Fatal(tcp.ListenAndServe(":"+strconv.Itoa(port), func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
@@ -109,5 +110,13 @@ func runServer(port int, path string) {
 func requestResponseInitializer(stuff map[string]map[string]string) func(rs.Payload) rs.Publisher {
 	return func(firstPacket rs.Payload) rs.Publisher {
 		return nil
+	}
+}
+
+func channelHandler(channels map[string]map[string][]string) func(rs.Payload, rs.Publisher) rs.Publisher {
+	return func(init rs.Payload, in rs.Publisher) rs.Publisher {
+		return rs.NewPublisher(func(sub rs.Subscriber) {
+
+		})
 	}
 }
