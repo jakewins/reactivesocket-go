@@ -32,6 +32,11 @@ func Encode(bufPtr *[]byte, streamId uint32, flags, frameType uint16, metadata, 
 }
 
 func EncodeWithInitialN(bufPtr *[]byte, streamId, initialN uint32, flags, frameType uint16, metadata, data []byte) {
+	if initialN == 0 {
+		Encode(bufPtr, streamId, flags, frameType, metadata, data)
+		return
+	}
+
 	buf := header.ResizeSlice(bufPtr, computeFrameLengthWithInitialN(metadata, data))
 	if len(metadata) > 0 {
 		flags |= header.FlagHasMetadata
@@ -62,14 +67,18 @@ func InitialRequestN(b []byte) uint32 {
 		return 0
 	case header.FTRequestResponse:
 		return 1
+	// These cases just verify that the frame is a Request frame
 	case header.FTRequestChannel:
-		return header.Uint32(b, initialNFieldOffset)
 	case header.FTRequestStream:
-		return header.Uint32(b, initialNFieldOffset)
 	case header.FTRequestSubscription:
-		return header.Uint32(b, initialNFieldOffset)
+	default:
+		panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
 	}
-	panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
+
+	if header.Flags(b)&RequestFlagRequestChannelN == 0 {
+		return 0
+	}
+	return header.Uint32(b, initialNFieldOffset)
 }
 
 func Describe(b []byte) string {

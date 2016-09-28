@@ -168,3 +168,11 @@ func TestDecodeRealWorldRequest(t *testing.T) {
 		t.Errorf("Expected data to be [% x], found [% x]", []byte{0x69}, f.Data())
 	}
 }
+
+func TestRequestWithInitialNSetToZero(t *testing.T) {
+	f := frame.RequestWithInitialN(1337, 0, 0, header.FTRequestChannel, nil, nil)
+
+	if request.InitialRequestN(f) != 0 {
+		t.Errorf("Expected initial N to be 0, found %d", request.InitialRequestN(f))
+	}
+}
