@@ -1,6 +1,7 @@
 package request
 
 import (
+	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 )
 
@@ -56,5 +57,35 @@ func PayloadOffsetWithInitialN(b []byte) int {
 }
 
 func InitialRequestN(b []byte) uint32 {
-	return header.Uint32(b, initialNFieldOffset)
+	switch header.FrameType(b) {
+	case header.FTFireAndForget:
+		return 0
+	case header.FTRequestResponse:
+		return 1
+	case header.FTRequestChannel:
+		return header.Uint32(b, initialNFieldOffset)
+	case header.FTRequestStream:
+		return header.Uint32(b, initialNFieldOffset)
+	case header.FTRequestSubscription:
+		return header.Uint32(b, initialNFieldOffset)
+	}
+	panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
+}
+
+func Describe(b []byte) string {
+	var frameName string
+	switch header.FrameType(b) {
+	case header.FTRequestChannel:
+		frameName = "RequestChannel"
+	case header.FTRequestSubscription:
+		frameName = "RequestSubscription"
+	case header.FTRequestStream:
+		frameName = "RequestStream"
+	case header.FTRequestResponse:
+		frameName = "RequestResponse"
+	default:
+		panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
+	}
+	return fmt.Sprintf("%s{streamId=%d, initialRequestN=%d}",
+		frameName, header.StreamID(b), InitialRequestN(b))
 }

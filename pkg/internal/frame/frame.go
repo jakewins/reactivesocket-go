@@ -59,6 +59,14 @@ func (f *Frame) Describe() string {
 		return requestn.Describe(f.Buf)
 	case header.FTResponse:
 		return response.Describe(f.Buf)
+	case header.FTRequestChannel:
+		return request.Describe(f.Buf)
+	case header.FTRequestStream:
+		return request.Describe(f.Buf)
+	case header.FTRequestSubscription:
+		return request.Describe(f.Buf)
+	case header.FTRequestResponse:
+		return request.Describe(f.Buf)
 	default:
 		return fmt.Sprintf("UnknownFrame{type=%d, contents=% x}", f.Type(), f.Buf)
 	}
