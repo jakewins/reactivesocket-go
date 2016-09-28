@@ -74,10 +74,11 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 		panic("Don't know how to handle multiple subscriptions to the same streamId")
 	}
 
-	self.streams[streamId] = &stream{}
+	var stream = &stream{}
+	self.streams[streamId] = stream
 
 	var out = self.Handler.HandleChannel(f, rs.NewPublisher(func(s rs.Subscriber) {
-		self.streams[streamId].in = s
+		stream.in = s
 		s.OnSubscribe(rs.NewSubscription(func(n int) {
 			self.lock.Lock()
 			defer self.lock.Unlock()
@@ -91,7 +92,7 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 
 	out.Subscribe(rs.NewSubscriber(
 		func(subscription rs.Subscription) {
-			self.streams[streamId].out = subscription
+			stream.out = subscription
 		},
 		func(val interface{}) { // onNext
 			var p = val.(rs.Payload)
@@ -108,6 +109,15 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 
 		},
 	))
+
+	if stream.in == nil {
+		panic("Programming error: Provided RequestHandler#HandleChannel(..) did not call " +
+			"Subscribe on the provided publisher immediately when invoked. This is not supported.")
+	}
+	if stream.out == nil {
+		panic("Programming error: Provided RequestHandler#HandleChannel(..) returned a Publisher " +
+			"that did not call OnSubscribe when Subscribed to. This is not supported.")
+	}
 }
 func (self *Protocol) handleKeepAlive(f *frame.Frame) {
 	if f.Flags()&header.FlagKeepaliveRespond != 0 {
