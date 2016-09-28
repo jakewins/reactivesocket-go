@@ -48,11 +48,11 @@ func EncodeWithInitialN(bufPtr *[]byte, streamId, initialN uint32, flags, frameT
 	header.EncodeMetaDataAndData(buf, metadata, data, offset, flags)
 }
 
-func PayloadOffset(b []byte) int {
+func PayloadOffset() int {
 	return header.FrameHeaderLength
 }
 
-func PayloadOffsetWithInitialN(b []byte) int {
+func PayloadOffsetWithInitialN() int {
 	return initialNFieldOffset + sizeOfInt
 }
 
