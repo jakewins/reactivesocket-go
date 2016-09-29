@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"sync"
@@ -113,6 +114,11 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 	if stream.out == nil {
 		panic("Programming error: Provided RequestHandler#HandleChannel(..) returned a Publisher " +
 			"that did not call OnSubscribe when Subscribed to. This is not supported.")
+	}
+
+	// After all the setup, handle initialRequestN
+	if n := request.InitialRequestN(f); n > 0 {
+		stream.out.Request(int(n))
 	}
 }
 func (self *Protocol) handleKeepAlive(f *frame.Frame) {
