@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 var (
@@ -117,19 +119,85 @@ func requestResponseInitializer(stuff map[string]map[string]string) func(rs.Payl
 func channelHandler(channels map[string]map[string][]string) func(rs.Payload, rs.Publisher) rs.Publisher {
 	return func(init rs.Payload, in rs.Publisher) rs.Publisher {
 		meta, data := string(init.Metadata()), string(init.Data())
-		fmt.Printf("Meta: %s, Data: %s", meta, data)
-		in.Subscribe(rs.NewSubscriber(
-			func(s rs.Subscription) {
 
-			},
-			func(v rs.Payload) {
+		script := channels[data][meta]
 
-			},
-			nil, nil,
-		))
+		sub := &puppetSubscriber{}
+		pub := &puppetPublisher{}
+		in.Subscribe(sub)
 
-		return rs.NewPublisher(func(sub rs.Subscriber) {
+		go channelWorker(script, sub, pub)
 
-		})
+		return pub
 	}
+}
+
+func channelWorker(script []string, in *puppetSubscriber, out *puppetPublisher) {
+	for _, command := range script {
+		args := strings.Split(command, "%%")
+		//fmt.Printf("%v\n", args)
+		switch args[0] {
+		case "respond":
+			out.publish(rs.NewPayload(nil, []byte(args[1])))
+		case "request":
+			in.request(parseInt(args[1]))
+		default:
+			panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
+		}
+	}
+}
+
+type puppetSubscriber struct {
+	subscription rs.Subscription
+	received     chan rs.Payload
+}
+
+func (p *puppetSubscriber) OnSubscribe(s rs.Subscription) {
+	p.subscription = s
+}
+func (p *puppetSubscriber) OnNext(v rs.Payload) {
+	p.received <- v
+}
+func (p *puppetSubscriber) OnError(err error) {
+}
+func (p *puppetSubscriber) OnComplete() {
+}
+func (p *puppetSubscriber) request(n int) {
+	p.subscription.Request(n)
+}
+
+type puppetPublisher struct {
+	subscriber rs.Subscriber
+	requested  int32
+	control    chan string
+}
+
+func (p *puppetPublisher) Subscribe(s rs.Subscriber) {
+	p.subscriber = s
+	s.OnSubscribe(rs.NewSubscription(
+		func(n int) {
+			atomic.AddInt32(&p.requested, int32(n))
+		},
+		func() {
+			// Cancelled
+		},
+	))
+}
+func (p *puppetPublisher) publish(v rs.Payload) {
+	for {
+		if atomic.LoadInt32(&p.requested) > 0 {
+			atomic.AddInt32(&p.requested, -1)
+			break
+		}
+		time.Sleep(time.Millisecond * 5)
+	}
+	p.subscriber.OnNext(v)
+}
+
+func parseInt(s string) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

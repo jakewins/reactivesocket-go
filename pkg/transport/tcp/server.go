@@ -91,7 +91,7 @@ func (c *conn) serve() {
 	for {
 		if err := c.dec.Read(f); err != nil {
 			fmt.Println("Failed to read frame; also, programmer failed to write error handling")
-			panic(err)
+			panic(err) // TODO
 		}
 
 		fmt.Printf("[Client] %s\n", f.Describe())
