@@ -104,6 +104,8 @@ func (self *Protocol) createStream(streamId uint32, initial *frame.Frame) *strea
 
 	var out = self.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
 		newStream.in = s
+		fmt.Printf("Before: %s, %s", initial.Data(), initial.Metadata())
+		fmt.Printf("After: %s, %s", rs.CopyPayload(initial).Data(), rs.CopyPayload(initial).Metadata())
 		s.OnSubscribe(&remoteStreamSubscription{
 			streamId:   streamId,
 			initial:    rs.CopyPayload(initial),

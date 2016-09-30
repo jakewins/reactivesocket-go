@@ -118,8 +118,8 @@ func requestResponseInitializer(stuff map[string]map[string]string) func(rs.Payl
 
 func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) rs.Publisher {
 	return func(in rs.Publisher) rs.Publisher {
-		sub := &puppetSubscriber{}
-		pub := &puppetPublisher{}
+		sub := NewPuppetSubscriber()
+		pub := NewPuppetPublisher()
 		in.Subscribe(sub)
 
 		go channelWorker(channels, sub, pub)
@@ -130,12 +130,16 @@ func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) 
 
 func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber, out *puppetPublisher) {
 	// First inbound message used to determine how to behave
+	fmt.Println("Request n")
 	in.request(1)
+	fmt.Println("Waiting for initial..")
 	init, err := in.awaitNext()
 	if err != nil {
 		panic(err.Error())
 	}
+	fmt.Printf("%s, %s\n%v\n", string(init.Data()), string(init.Metadata()), channels)
 	script := channels[string(init.Data())][string(init.Metadata())]
+	fmt.Printf("SCRIPT %v\n", script)
 
 	for _, command := range script {
 		args := strings.Split(command, "%%")
@@ -151,6 +155,10 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 				if err := in.awaitAtLeast(parseInt(args[3])); err != nil {
 					panic(err.Error())
 				}
+			case "terminal":
+				if err := in.awaitTerminal(); err != nil {
+					panic(err.Error())
+				}
 			default:
 				panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
 			}
@@ -160,9 +168,17 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 	}
 }
 
+func NewPuppetSubscriber() *puppetSubscriber {
+	return &puppetSubscriber{
+		inbound: make(chan rs.Payload, 16),
+		control: make(chan string, 2),
+	}
+}
+
 type puppetSubscriber struct {
 	subscription rs.Subscription
 	inbound      chan rs.Payload
+	control      chan string
 	received     []rs.Payload
 }
 
@@ -173,8 +189,10 @@ func (p *puppetSubscriber) OnNext(v rs.Payload) {
 	p.inbound <- rs.CopyPayload(v)
 }
 func (p *puppetSubscriber) OnError(err error) {
+	p.control <- fmt.Sprintf("ERROR: %s", err.Error())
 }
 func (p *puppetSubscriber) OnComplete() {
+	p.control <- "COMPLETE"
 }
 func (p *puppetSubscriber) request(n int) {
 	p.subscription.Request(n)
@@ -192,12 +210,24 @@ func (p *puppetSubscriber) awaitAtLeast(n int) error {
 		}
 	}
 }
+func (p *puppetSubscriber) awaitTerminal() error {
+	select {
+	case <-p.control:
+		return nil
+	case <-time.After(time.Second * 5):
+		return fmt.Errorf("Expected subscriber to be completed, timed out before that.")
+	}
+}
 func (p *puppetSubscriber) awaitNext() (rs.Payload, error) {
 	nextIndex := len(p.received)
 	if err := p.awaitAtLeast(1); err != nil {
 		return nil, err
 	}
 	return p.received[nextIndex], nil
+}
+
+func NewPuppetPublisher() *puppetPublisher {
+	return &puppetPublisher{}
 }
 
 type puppetPublisher struct {

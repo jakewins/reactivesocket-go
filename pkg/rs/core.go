@@ -21,7 +21,7 @@ func CopyPayload(p Payload) Payload {
 		copy(meta, sourceMeta)
 	}
 	if sourceData != nil {
-		data := make([]byte, len(sourceData))
+		data = make([]byte, len(sourceData))
 		copy(data, sourceData)
 	}
 	return &anonymousPayload{meta, data}
