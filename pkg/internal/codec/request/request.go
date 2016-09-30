@@ -89,7 +89,7 @@ func Describe(b []byte) string {
 		frameName = "RequestChannel"
 		payloadOffset = PayloadOffsetWithInitialN
 		if header.Flags(b)&RequestFlagRequestChannelC != 0 {
-			frameName = "RequestChannel[FlagComplete]"
+			frameName = "RequestChannel[Complete]"
 		}
 	case header.FTRequestSubscription:
 		frameName = "RequestSubscription"

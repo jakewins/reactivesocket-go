@@ -10,5 +10,5 @@ func InitialRequestN(f *frame.Frame) uint32 {
 }
 
 func IsCompleteChannel(f *frame.Frame) bool {
-	return f.Flags() & request.RequestFlagRequestChannelC != 0
+	return f.Flags()&request.RequestFlagRequestChannelC != 0
 }

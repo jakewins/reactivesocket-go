@@ -139,10 +139,17 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 
 	for _, command := range script {
 		args := strings.Split(command, "%%")
-		//fmt.Printf("%v\n", args)
 		switch args[0] {
 		case "respond":
-			out.publish(rs.NewPayload(nil, []byte(args[1])))
+			for _, c := range args[1] {
+				switch string(c) {
+				case "-": // do nothing
+				case "|": // completed stream
+					out.complete()
+				default:
+					out.publish(rs.NewPayload(nil, []byte(string(c))))
+				}
+			}
 		case "request":
 			in.request(parseInt(args[1]))
 		case "await":
@@ -231,7 +238,7 @@ func (p *puppetSubscriber) awaitNext() (rs.Payload, error) {
 	}
 	return p.received[nextIndex], nil
 }
-func (p *puppetSubscriber) assertComplete() (error) {
+func (p *puppetSubscriber) assertComplete() error {
 	if p.state != "COMPLETE" {
 		return fmt.Errorf("Expected stream to be COMPLETE, found %s", p.state)
 	}
@@ -269,7 +276,9 @@ func (p *puppetPublisher) publish(v rs.Payload) {
 	}
 	p.subscriber.OnNext(v)
 }
-
+func (p *puppetPublisher) complete() {
+	p.subscriber.OnComplete()
+}
 func parseInt(s string) int {
 	v, err := strconv.Atoi(s)
 	if err != nil {

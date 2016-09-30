@@ -19,6 +19,7 @@ const (
 const (
 	FlagHasMetadata      uint16 = 1 << 14
 	FlagKeepaliveRespond        = 1 << 13
+	FlagResponseComplete        = 1 << 12
 )
 
 const (
@@ -40,10 +41,6 @@ const (
 	FTError    = 0x0C
 	// Requester & Responder
 	FTMetadataPush = 0x0D
-	// synthetic types from Responder for use by the rest of the machinery
-	FTNext         = 0x0E
-	FTComplete     = 0x0F
-	FTNextComplete = 0x10
 )
 
 func computeMetadataLength(metadataPayloadLength int) int {

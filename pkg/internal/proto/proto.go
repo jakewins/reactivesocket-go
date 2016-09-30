@@ -48,25 +48,25 @@ func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol 
 }
 
 // This method is not goroutine safe
-func (self *Protocol) HandleFrame(f *frame.Frame) {
+func (p *Protocol) HandleFrame(f *frame.Frame) {
 	switch f.Type() {
 	case header.FTRequestChannel:
-		self.handleRequestChannel(f)
+		p.handleRequestChannel(f)
 	case header.FTKeepAlive:
-		self.handleKeepAlive(f)
+		p.handleKeepAlive(f)
 	case header.FTResponse:
-		self.handleResponse(f)
+		p.handleResponse(f)
 	case header.FTRequestN:
-		self.handleRequestN(f)
+		p.handleRequestN(f)
 	default:
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
 }
-func (self *Protocol) handleRequestChannel(f *frame.Frame) {
+func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 	var streamId = f.StreamID()
-	var theStream *stream = self.streams[streamId]
+	var theStream *stream = p.streams[streamId]
 	if theStream == nil {
-		theStream = self.createStream(streamId, f)
+		theStream = p.createStream(streamId, f)
 		if n := request.InitialRequestN(f); n > 0 {
 			theStream.out.Request(int(n))
 		}
@@ -79,21 +79,21 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 		theStream.in.OnNext(f)
 	}
 }
-func (self *Protocol) handleKeepAlive(f *frame.Frame) {
+func (p *Protocol) handleKeepAlive(f *frame.Frame) {
 	if f.Flags()&header.FlagKeepaliveRespond != 0 {
-		self.out.sendKeepAlive()
+		p.out.sendKeepAlive()
 	}
 }
-func (self *Protocol) handleResponse(f *frame.Frame) {
-	var stream = self.streams[f.StreamID()]
+func (p *Protocol) handleResponse(f *frame.Frame) {
+	var stream = p.streams[f.StreamID()]
 	if stream == nil {
 		// TODO: need to sort out protocol deal here
 		return
 	}
 	stream.in.OnNext(f)
 }
-func (self *Protocol) handleRequestN(f *frame.Frame) {
-	var stream = self.streams[f.StreamID()]
+func (p *Protocol) handleRequestN(f *frame.Frame) {
+	var stream = p.streams[f.StreamID()]
 	if stream == nil {
 		// TODO: need to sort out protocol deal here
 		return
@@ -102,17 +102,17 @@ func (self *Protocol) handleRequestN(f *frame.Frame) {
 }
 
 // TODO This whole *stream should be pooled on the Protocol instance and reused
-func (self *Protocol) createStream(streamId uint32, initial *frame.Frame) *stream {
+func (p *Protocol) createStream(streamId uint32, initial *frame.Frame) *stream {
 	newStream := &stream{}
-	self.streams[streamId] = newStream
+	p.streams[streamId] = newStream
 
-	var out = self.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
+	var out = p.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
 		newStream.in = s
 		s.OnSubscribe(&remoteStreamSubscription{
 			streamId:   streamId,
 			initial:    rs.CopyPayload(initial),
 			subscriber: s,
-			out:        self.out,
+			out:        p.out,
 		})
 	}))
 
@@ -121,14 +121,14 @@ func (self *Protocol) createStream(streamId uint32, initial *frame.Frame) *strea
 			newStream.out = subscription
 		},
 		func(val rs.Payload) {
-			self.out.sendResponse(streamId, val)
+			p.out.sendResponse(streamId, val)
 		},
 		func(err error) {
 
 		},
 		func() {
-			// onComplete
-
+			// TODO: When do we clean up the stream reference?
+			p.out.sendResponseComplete(streamId)
 		},
 	))
 
@@ -154,21 +154,21 @@ type remoteStreamSubscription struct {
 }
 
 // Called by Application
-func (self *remoteStreamSubscription) Request(n int) {
+func (r *remoteStreamSubscription) Request(n int) {
 	// A bit precarious here; for efficiencies sake, the first payload
 	// in a channel is bundled with the Request to start the channel.
 	// Hence, the first req the App makes is immediately fulfilled.
-	if atomic.CompareAndSwapInt32(&self.started, 0, 1) {
-		self.subscriber.OnNext(self.initial)
+	if atomic.CompareAndSwapInt32(&r.started, 0, 1) {
+		r.subscriber.OnNext(r.initial)
 		n -= 1
 	}
 	if n > 0 {
-		self.out.sendRequestN(self.streamId, uint32(n))
+		r.out.sendRequestN(r.streamId, uint32(n))
 	}
 }
 
 // Called by Application
-func (self *remoteStreamSubscription) Cancel() {
+func (r *remoteStreamSubscription) Cancel() {
 
 }
 
@@ -195,7 +195,13 @@ func (out *output) sendResponse(streamId uint32, val rs.Payload) {
 		panic(err.Error()) // TODO
 	}
 }
-
+func (out *output) sendResponseComplete(streamId uint32) {
+	out.lock.Lock()
+	defer out.lock.Unlock()
+	if err := out.send(frame.EncodeResponse(out.f, streamId, header.FlagResponseComplete, nil, nil)); err != nil {
+		panic(err.Error()) // TODO
+	}
+}
 func (out *output) sendRequestN(streamId, n uint32) {
 	out.lock.Lock()
 	defer out.lock.Unlock()
@@ -203,7 +209,6 @@ func (out *output) sendRequestN(streamId, n uint32) {
 		panic(err.Error()) // TODO
 	}
 }
-
 func (out *output) sendKeepAlive() {
 	out.lock.Lock()
 	defer out.lock.Unlock()
