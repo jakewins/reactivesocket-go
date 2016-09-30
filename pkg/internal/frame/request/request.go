@@ -8,3 +8,7 @@ import (
 func InitialRequestN(f *frame.Frame) uint32 {
 	return request.InitialRequestN(f.Buf)
 }
+
+func IsCompleteChannel(f *frame.Frame) bool {
+	return f.Flags() & request.RequestFlagRequestChannelC != 0
+}

@@ -73,7 +73,11 @@ func (self *Protocol) handleRequestChannel(f *frame.Frame) {
 		return
 	}
 
-	theStream.in.OnNext(f)
+	if request.IsCompleteChannel(f) {
+		theStream.in.OnComplete()
+	} else {
+		theStream.in.OnNext(f)
+	}
 }
 func (self *Protocol) handleKeepAlive(f *frame.Frame) {
 	if f.Flags()&header.FlagKeepaliveRespond != 0 {
@@ -104,8 +108,6 @@ func (self *Protocol) createStream(streamId uint32, initial *frame.Frame) *strea
 
 	var out = self.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
 		newStream.in = s
-		fmt.Printf("Before: %s, %s", initial.Data(), initial.Metadata())
-		fmt.Printf("After: %s, %s", rs.CopyPayload(initial).Data(), rs.CopyPayload(initial).Metadata())
 		s.OnSubscribe(&remoteStreamSubscription{
 			streamId:   streamId,
 			initial:    rs.CopyPayload(initial),

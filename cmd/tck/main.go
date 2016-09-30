@@ -130,16 +130,12 @@ func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) 
 
 func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber, out *puppetPublisher) {
 	// First inbound message used to determine how to behave
-	fmt.Println("Request n")
 	in.request(1)
-	fmt.Println("Waiting for initial..")
 	init, err := in.awaitNext()
 	if err != nil {
 		panic(err.Error())
 	}
-	fmt.Printf("%s, %s\n%v\n", string(init.Data()), string(init.Metadata()), channels)
 	script := channels[string(init.Data())][string(init.Metadata())]
-	fmt.Printf("SCRIPT %v\n", script)
 
 	for _, command := range script {
 		args := strings.Split(command, "%%")
@@ -162,6 +158,13 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 			default:
 				panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
 			}
+		case "assert":
+			switch args[1] {
+			case "completed":
+				if err := in.assertComplete(); err != nil {
+					panic(err.Error())
+				}
+			}
 		default:
 			panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
 		}
@@ -180,6 +183,7 @@ type puppetSubscriber struct {
 	inbound      chan rs.Payload
 	control      chan string
 	received     []rs.Payload
+	state        string
 }
 
 func (p *puppetSubscriber) OnSubscribe(s rs.Subscription) {
@@ -189,9 +193,11 @@ func (p *puppetSubscriber) OnNext(v rs.Payload) {
 	p.inbound <- rs.CopyPayload(v)
 }
 func (p *puppetSubscriber) OnError(err error) {
+	p.state = "ERROR"
 	p.control <- fmt.Sprintf("ERROR: %s", err.Error())
 }
 func (p *puppetSubscriber) OnComplete() {
+	p.state = "COMPLETE"
 	p.control <- "COMPLETE"
 }
 func (p *puppetSubscriber) request(n int) {
@@ -224,6 +230,12 @@ func (p *puppetSubscriber) awaitNext() (rs.Payload, error) {
 		return nil, err
 	}
 	return p.received[nextIndex], nil
+}
+func (p *puppetSubscriber) assertComplete() (error) {
+	if p.state != "COMPLETE" {
+		return fmt.Errorf("Expected stream to be COMPLETE, found %s", p.state)
+	}
+	return nil
 }
 
 func NewPuppetPublisher() *puppetPublisher {
