@@ -15,5 +15,5 @@ type ConnectionSetupPayload interface {
 
 type RequestHandler struct {
 	HandleRequestResponse func(Payload) Publisher
-	HandleChannel         func(Payload, Publisher) Publisher
+	HandleChannel         func(Publisher) Publisher
 }

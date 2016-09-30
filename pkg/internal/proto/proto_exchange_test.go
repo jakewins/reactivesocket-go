@@ -51,12 +51,11 @@ var scenarios = []scenario{
 		}, exchanges{
 			exchange{
 				in{frame.Request(1337, 0, header.FTRequestChannel, nil, nil)},
-				out{frame.RequestN(1337, 2)},
+				out{frame.RequestN(1337, 1)}, // NOTE: First Payload is bundled in the request, so just 1 here
 			},
 			exchange{
 				in{ // Our stub client fulfills the request
-					frame.Response(1337, 0, nil, nil),
-					frame.Response(1337, 0, nil, nil)},
+					frame.Request(1337, 0, header.FTRequestChannel, nil, nil)},
 				out{ // Server should have seen them, and blackhole will req 2 more
 					frame.RequestN(1337, 2)},
 			},
@@ -125,8 +124,8 @@ func (r *recorder) AssertRecorded(expected []*frame.Frame) error {
 }
 
 // Creates channels that spit out incrementing sequences of numbers
-func sequencer(start, end uint32) func(rs.Payload) rs.Publisher {
-	return func(init rs.Payload) rs.Publisher {
+func sequencer(start, end uint32) func() rs.Publisher {
+	return func() rs.Publisher {
 		var seq uint32 = start
 		return rs.NewPublisher(func(s rs.Subscriber) {
 			s.OnSubscribe(rs.NewSubscription(
@@ -164,9 +163,9 @@ func blackhole(requestSize, cancelAt int) func(rs.Publisher) {
 
 		source.Subscribe(rs.NewSubscriber(
 			func(s rs.Subscription) {
-				s.Request(requestSize)
-				outstandingRequests += requestSize
 				subscription = s
+				outstandingRequests += requestSize
+				s.Request(requestSize)
 			},
 			func(v rs.Payload) {
 				remainingBeforeCancel -= 1
@@ -197,10 +196,10 @@ func wall(source rs.Publisher) {
 	))
 }
 
-func channelFactory(in func(rs.Publisher), out func(rs.Payload) rs.Publisher) func(rs.Payload, rs.Publisher) rs.Publisher {
-	return func(init rs.Payload, source rs.Publisher) rs.Publisher {
+func channelFactory(in func(rs.Publisher), out func() rs.Publisher) func(rs.Publisher) rs.Publisher {
+	return func(source rs.Publisher) rs.Publisher {
 		in(source)
-		return out(init)
+		return out()
 	}
 }
 

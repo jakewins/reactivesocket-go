@@ -116,7 +116,7 @@ func Data(buf []byte, payloadOffset func() int) []byte {
 func dataLength(buf []byte, payloadOffset func() int) int {
 	frameLength := len(buf)
 	metadataLength := MetadataFieldLength(buf, payloadOffset)
-	return frameLength - metadataLength - payloadOffset()
+	return max(0, frameLength-metadataLength-payloadOffset())
 }
 
 func EncodeMetaDataAndData(buf, metadata, data []byte, offset int, flags uint16) {

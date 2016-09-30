@@ -11,6 +11,21 @@ type ReactiveSocket interface {
 func NewPayload(metadata, data []byte) Payload {
 	return &anonymousPayload{metadata, data}
 }
+func CopyPayload(p Payload) Payload {
+	var meta []byte
+	var data []byte
+
+	sourceMeta, sourceData := p.Metadata(), p.Data()
+	if sourceMeta != nil {
+		meta = make([]byte, len(sourceMeta))
+		copy(meta, sourceMeta)
+	}
+	if sourceData != nil {
+		data := make([]byte, len(sourceData))
+		copy(data, sourceData)
+	}
+	return &anonymousPayload{meta, data}
+}
 
 type anonymousPayload struct {
 	metadata []byte

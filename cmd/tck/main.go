@@ -116,23 +116,27 @@ func requestResponseInitializer(stuff map[string]map[string]string) func(rs.Payl
 	}
 }
 
-func channelHandler(channels map[string]map[string][]string) func(rs.Payload, rs.Publisher) rs.Publisher {
-	return func(init rs.Payload, in rs.Publisher) rs.Publisher {
-		meta, data := string(init.Metadata()), string(init.Data())
-
-		script := channels[data][meta]
-
+func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) rs.Publisher {
+	return func(in rs.Publisher) rs.Publisher {
 		sub := &puppetSubscriber{}
 		pub := &puppetPublisher{}
 		in.Subscribe(sub)
 
-		go channelWorker(script, sub, pub)
+		go channelWorker(channels, sub, pub)
 
 		return pub
 	}
 }
 
-func channelWorker(script []string, in *puppetSubscriber, out *puppetPublisher) {
+func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber, out *puppetPublisher) {
+	// First inbound message used to determine how to behave
+	in.request(1)
+	init, err := in.awaitNext()
+	if err != nil {
+		panic(err.Error())
+	}
+	script := channels[string(init.Data())][string(init.Metadata())]
+
 	for _, command := range script {
 		args := strings.Split(command, "%%")
 		//fmt.Printf("%v\n", args)
@@ -141,6 +145,15 @@ func channelWorker(script []string, in *puppetSubscriber, out *puppetPublisher) 
 			out.publish(rs.NewPayload(nil, []byte(args[1])))
 		case "request":
 			in.request(parseInt(args[1]))
+		case "await":
+			switch args[1] {
+			case "atLeast":
+				if err := in.awaitAtLeast(parseInt(args[3])); err != nil {
+					panic(err.Error())
+				}
+			default:
+				panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
+			}
 		default:
 			panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
 		}
@@ -149,14 +162,15 @@ func channelWorker(script []string, in *puppetSubscriber, out *puppetPublisher) 
 
 type puppetSubscriber struct {
 	subscription rs.Subscription
-	received     chan rs.Payload
+	inbound      chan rs.Payload
+	received     []rs.Payload
 }
 
 func (p *puppetSubscriber) OnSubscribe(s rs.Subscription) {
 	p.subscription = s
 }
 func (p *puppetSubscriber) OnNext(v rs.Payload) {
-	p.received <- v
+	p.inbound <- rs.CopyPayload(v)
 }
 func (p *puppetSubscriber) OnError(err error) {
 }
@@ -164,6 +178,26 @@ func (p *puppetSubscriber) OnComplete() {
 }
 func (p *puppetSubscriber) request(n int) {
 	p.subscription.Request(n)
+}
+func (p *puppetSubscriber) awaitAtLeast(n int) error {
+	for {
+		if len(p.received) >= n {
+			return nil
+		}
+		select {
+		case msg := <-p.inbound:
+			p.received = append(p.received, msg)
+		case <-time.After(time.Second * 5):
+			return fmt.Errorf("Expected %d messages, timed out before that.", n)
+		}
+	}
+}
+func (p *puppetSubscriber) awaitNext() (rs.Payload, error) {
+	nextIndex := len(p.received)
+	if err := p.awaitAtLeast(1); err != nil {
+		return nil, err
+	}
+	return p.received[nextIndex], nil
 }
 
 type puppetPublisher struct {
