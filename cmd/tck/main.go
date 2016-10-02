@@ -100,15 +100,23 @@ func runServer(port int, path string) {
 		log.Fatal(err)
 	}
 
+	var server tcp.Server
 	handler := &rs.RequestHandler{
 		HandleRequestResponse: requestResponseHandler(requestResponseMarbles),
 		HandleChannel:         channelHandler(channels),
-		HandleFireAndForget:   fireAndForgetHandler(),
+		HandleFireAndForget:   fireAndForgetHandler(&server),
 	}
 
-	log.Fatal(tcp.ListenAndServe(":"+strconv.Itoa(port), func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
+	address := ":" + strconv.Itoa(port)
+	server, err = tcp.NewServer(address, func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
 		return handler, nil
-	}))
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("[TCK] Server started, listening on [%s]\n", address)
+	log.Fatal(server.Serve())
 }
 
 func requestResponseHandler(stuff map[string]map[string]string) func(rs.Payload) rs.Publisher {
@@ -127,9 +135,11 @@ func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) 
 		return pub
 	}
 }
-func fireAndForgetHandler() func(rs.Payload) {
-	return func(rs.Payload) {
-
+func fireAndForgetHandler(server *tcp.Server) func(rs.Payload) {
+	return func(p rs.Payload) {
+		if string(p.Data()) == "shutdown" {
+			(*server).Shutdown()
+		}
 	}
 }
 

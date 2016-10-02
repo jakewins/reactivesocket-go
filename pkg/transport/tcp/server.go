@@ -7,29 +7,61 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/setup"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/proto"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
+	"io"
 	"net"
+	"sync"
+	"time"
 )
 
-func ListenAndServe(address string, setup rs.ConnectionSetupHandler) error {
-	listener, err := net.Listen("tcp", address)
+func NewServer(address string, setup rs.ConnectionSetupHandler) (Server, error) {
+	laddr, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	listener, err := net.ListenTCP("tcp", laddr)
+	if err != nil {
+		return nil, err
 	}
 
-	server := server{listener, setup}
-	return server.serve()
+	s := &server{
+		listener:        listener,
+		setup:           setup,
+		control:         make(chan string, 8),
+		shutdownWaiters: &sync.WaitGroup{},
+	}
+	s.shutdownWaiters.Add(1)
+	return s, nil
+}
+
+type Server interface {
+	// Runs the accept loop for this server, returns when the server is shut down.
+	Serve() error
+	// Signal the accept loop to shut down
+	Shutdown()
+	// Block until the server shuts down
+	AwaitShutdown()
 }
 
 type server struct {
-	listener net.Listener
-	setup    rs.ConnectionSetupHandler
+	listener        *net.TCPListener
+	setup           rs.ConnectionSetupHandler
+	control         chan string
+	shutdownWaiters *sync.WaitGroup
 }
 
-func (s *server) serve() error {
+func (s *server) Serve() error {
+	defer s.shutdownWaiters.Done()
 	for {
+		if s.checkForShutdown() {
+			return nil
+		}
+		s.listener.SetDeadline(time.Now().Add(1e9))
 		rwc, err := s.listener.Accept()
 		if err != nil {
 			// TODO: See stdlib http loop, it checks for temporary network errors here
+			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				continue
+			}
 			return err
 		}
 
@@ -39,6 +71,21 @@ func (s *server) serve() error {
 			setup: s.setup,
 		}
 		go c.serve()
+	}
+}
+func (s *server) Shutdown() {
+	close(s.control)
+}
+func (s *server) AwaitShutdown() {
+	s.shutdownWaiters.Wait()
+}
+func (s *server) checkForShutdown() bool {
+	select {
+	case <-s.control:
+		s.listener.Close()
+		return true
+	default:
+		return false
 	}
 }
 
@@ -90,6 +137,10 @@ func (c *conn) serve() {
 
 	for {
 		if err := c.dec.Read(f); err != nil {
+			if err == io.EOF {
+				c.protocol.HandleEOF()
+				return
+			}
 			fmt.Println("Failed to read frame; also, programmer failed to write error handling")
 			panic(err) // TODO
 		}

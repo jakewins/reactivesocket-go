@@ -64,6 +64,9 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
 }
+func (p *Protocol) HandleEOF() {
+	// Close all open streams
+}
 func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 	var streamId = f.StreamID()
 	var theStream *stream = p.streams[streamId]
