@@ -74,6 +74,16 @@ var scenarios = []scenario{
 			},
 		},
 	},
+	{
+		"FireAndForget happy path", &rs.RequestHandler{
+			HandleFireAndForget: fireAndForgetSuccess,
+		}, exchanges{
+			exchange{
+				in{frame.Request(1337, 0, header.FTFireAndForget, nil, nil)},
+				out{},
+			},
+		},
+	},
 }
 
 func TestScenarios(t *testing.T) {
@@ -201,6 +211,10 @@ func channelFactory(in func(rs.Publisher), out func() rs.Publisher) func(rs.Publ
 		in(source)
 		return out()
 	}
+}
+
+func fireAndForgetSuccess(p rs.Payload) {
+
 }
 
 func min(a, b int) int {

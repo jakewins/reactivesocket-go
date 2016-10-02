@@ -2,6 +2,7 @@ package rs
 
 import (
 	"fmt"
+	"sync/atomic"
 )
 
 // I'm not sure if replicating the reactive streams API
@@ -120,4 +121,16 @@ type anonymousPublisher struct {
 
 func (a *anonymousPublisher) Subscribe(s Subscriber) {
 	a.subscribe(s)
+}
+
+// Publisher that emits a single OnComplete
+func NewEmptyPublisher() Publisher {
+	return NewPublisher(func(s Subscriber) {
+		var done int32 = 0
+		s.OnSubscribe(NewSubscription(func(n int) {
+			if atomic.CompareAndSwapInt32(&done, 0, 1) {
+				s.OnComplete()
+			}
+		}, func() {}))
+	})
 }

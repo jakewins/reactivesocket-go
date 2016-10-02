@@ -101,8 +101,9 @@ func runServer(port int, path string) {
 	}
 
 	handler := &rs.RequestHandler{
-		HandleRequestResponse: requestResponseInitializer(requestResponseMarbles),
+		HandleRequestResponse: requestResponseHandler(requestResponseMarbles),
 		HandleChannel:         channelHandler(channels),
+		HandleFireAndForget:   fireAndForgetHandler(),
 	}
 
 	log.Fatal(tcp.ListenAndServe(":"+strconv.Itoa(port), func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
@@ -110,12 +111,11 @@ func runServer(port int, path string) {
 	}))
 }
 
-func requestResponseInitializer(stuff map[string]map[string]string) func(rs.Payload) rs.Publisher {
+func requestResponseHandler(stuff map[string]map[string]string) func(rs.Payload) rs.Publisher {
 	return func(firstPacket rs.Payload) rs.Publisher {
 		return nil
 	}
 }
-
 func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) rs.Publisher {
 	return func(in rs.Publisher) rs.Publisher {
 		sub := NewPuppetSubscriber()
@@ -125,6 +125,11 @@ func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) 
 		go channelWorker(channels, sub, pub)
 
 		return pub
+	}
+}
+func fireAndForgetHandler() func(rs.Payload) {
+	return func(rs.Payload) {
+
 	}
 }
 

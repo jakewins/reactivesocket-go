@@ -58,6 +58,8 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 		p.handleResponse(f)
 	case header.FTRequestN:
 		p.handleRequestN(f)
+	case header.FTFireAndForget:
+		p.handleFireAndForget(f)
 	default:
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
@@ -78,6 +80,9 @@ func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 	} else {
 		theStream.in.OnNext(f)
 	}
+}
+func (p *Protocol) handleFireAndForget(f *frame.Frame) {
+	p.Handler.HandleFireAndForget(f)
 }
 func (p *Protocol) handleKeepAlive(f *frame.Frame) {
 	if f.Flags()&header.FlagKeepaliveRespond != 0 {
