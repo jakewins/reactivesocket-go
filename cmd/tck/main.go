@@ -161,6 +161,8 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 				case "-": // do nothing
 				case "|": // completed stream
 					out.complete()
+				case "#": // error
+					out.causeError()
 				default:
 					out.publish(rs.NewPayload(nil, []byte(string(c))))
 				}
@@ -293,6 +295,9 @@ func (p *puppetPublisher) publish(v rs.Payload) {
 }
 func (p *puppetPublisher) complete() {
 	p.subscriber.OnComplete()
+}
+func (p *puppetPublisher) causeError() {
+	p.subscriber.OnError(fmt.Errorf("Intentional error induced by TCK script."))
 }
 func parseInt(s string) int {
 	v, err := strconv.Atoi(s)

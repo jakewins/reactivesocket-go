@@ -2,6 +2,7 @@ package frame
 
 import (
 	"fmt"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/errorc"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/keepalive"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/request"
@@ -69,6 +70,8 @@ func (f *Frame) Describe() string {
 		return request.Describe(f.Buf)
 	case header.FTRequestResponse:
 		return request.Describe(f.Buf)
+	case header.FTError:
+		return errorc.Describe(f.Buf)
 	default:
 		return fmt.Sprintf("UnknownFrame{type=%d, contents=% x}", f.Type(), f.Buf)
 	}
@@ -92,6 +95,8 @@ func (f *Frame) payloadOffset() int {
 		return requestn.PayloadOffset()
 	case header.FTResponse:
 		return response.PayloadOffset()
+	case header.FTError:
+		return errorc.PayloadOffset()
 	}
 	// TODO, I don't think we should use Panic like this; it's a legitimate
 	//       condition that the remote implementation may send us invalid
@@ -131,6 +136,10 @@ func EncodeRequestN(f *Frame, streamId, requestN uint32) *Frame {
 	requestn.Encode(&f.Buf, streamId, requestN)
 	return f
 }
+func EncodeError(f *Frame, streamId, errorCode uint32, metadata, data []byte) *Frame {
+	errorc.Encode(&f.Buf, streamId, errorCode, metadata, data)
+	return f
+}
 
 func Setup(flags uint16, keepaliveInterval, maxLifetime uint32,
 	metadataMimeType, dataMimeType string, metadata, data []byte) *Frame {
@@ -158,6 +167,10 @@ func RequestWithInitialN(streamId, initialN uint32, flags, frameType uint16, met
 func RequestN(streamId, requestN uint32) *Frame {
 	f := &Frame{}
 	return EncodeRequestN(f, streamId, requestN)
+}
+func Error(streamId, errorCode uint32, metadata, data []byte) *Frame {
+	f := &Frame{}
+	return EncodeError(f, streamId, errorCode, metadata, data)
 }
 
 // Frame encoder/decoder below should be moved out of here

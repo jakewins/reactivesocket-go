@@ -2,6 +2,7 @@ package proto
 
 import (
 	"fmt"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/errorc"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
@@ -132,7 +133,7 @@ func (p *Protocol) createStream(streamId uint32, initial *frame.Frame) *stream {
 			p.out.sendResponse(streamId, val)
 		},
 		func(err error) {
-
+			p.out.sendError(streamId, err)
 		},
 		func() {
 			// TODO: When do we clean up the stream reference?
@@ -200,6 +201,13 @@ func (out *output) sendResponse(streamId uint32, val rs.Payload) {
 	out.lock.Lock()
 	defer out.lock.Unlock()
 	if err := out.send(frame.EncodeResponse(out.f, streamId, 0, val.Metadata(), val.Data())); err != nil {
+		panic(err.Error()) // TODO
+	}
+}
+func (out *output) sendError(streamId uint32, err error) {
+	out.lock.Lock()
+	defer out.lock.Unlock()
+	if err := out.send(frame.EncodeError(out.f, streamId, errorc.ECApplicationError, nil, []byte(err.Error()))); err != nil {
 		panic(err.Error()) // TODO
 	}
 }

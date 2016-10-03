@@ -51,6 +51,7 @@ type server struct {
 
 func (s *server) Serve() error {
 	defer s.shutdownWaiters.Done()
+	var connIds int = 0
 	for {
 		if s.checkForShutdown() {
 			return nil
@@ -66,7 +67,9 @@ func (s *server) Serve() error {
 		}
 
 		// TODO: Proper resource handling - close these guys on server close
+		connIds += 1
 		c := &conn{
+			id:    connIds,
 			rwc:   rwc,
 			setup: s.setup,
 		}
@@ -90,6 +93,7 @@ func (s *server) checkForShutdown() bool {
 }
 
 type conn struct {
+	id       int
 	rwc      net.Conn
 	frame    frame.Frame
 	setup    rs.ConnectionSetupHandler
@@ -130,7 +134,7 @@ func (c *conn) serve() {
 	c.protocol = proto.NewProtocol(
 		handler,
 		func(f *frame.Frame) error {
-			fmt.Printf("[Server] %s\n", f.Describe())
+			fmt.Printf("[Server C%d] %s\n", c.id, f.Describe())
 			return c.enc.Write(f)
 		},
 	)
@@ -145,7 +149,7 @@ func (c *conn) serve() {
 			panic(err) // TODO
 		}
 
-		fmt.Printf("[Client] %s\n", f.Describe())
+		fmt.Printf("[Client C%d] %s\n", c.id, f.Describe())
 
 		c.protocol.HandleFrame(f)
 	}
