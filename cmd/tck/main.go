@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
@@ -121,7 +122,7 @@ func runServer(port int, path string) {
 	log.Fatal(server.Serve())
 }
 
-func requestResponseHandler(stuff map[string]map[string]string) func(rs.Payload) rs.Publisher {
+func requestResponseHandler(scripts map[string]map[string]string) func(rs.Payload) rs.Publisher {
 	return func(firstPacket rs.Payload) rs.Publisher {
 		return nil
 	}
@@ -201,7 +202,31 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 }
 
 func playMarble(marble string, out *puppetPublisher) {
-	fmt.Printf("Playing marble `%s`", marble)
+	var payload = func(key string) rs.Payload {
+		return rs.NewPayload([]byte(key), []byte(key))
+	}
+	if strings.Contains(marble, "&&") {
+		parts := strings.Split(marble, "&&")
+		marble = parts[0]
+		var args map[string]map[string]string
+		if err := json.Unmarshal([]byte(parts[1]), &args); err != nil {
+			panic(err)
+		}
+		payload = func(key string) rs.Payload {
+			var mappedPayload = args[key]
+			if mappedPayload == nil {
+				return rs.NewPayload([]byte(key), []byte(key))
+			}
+			for k, v := range mappedPayload {
+				return rs.NewPayload([]byte(v), []byte(k))
+			}
+			panic("Should never reach here.")
+		}
+		fmt.Printf("Playing marble `%s` %v\n", marble, args)
+	} else {
+		fmt.Printf("Playing marble `%s`\n", marble)
+	}
+
 	for _, c := range marble {
 		switch string(c) {
 		case "-": // do nothing
@@ -210,7 +235,7 @@ func playMarble(marble string, out *puppetPublisher) {
 		case "#": // error
 			out.causeError()
 		default:
-			out.publish(rs.NewPayload(nil, []byte(string(c))))
+			out.publish(payload(string(c)))
 		}
 	}
 }
