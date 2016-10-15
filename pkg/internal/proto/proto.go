@@ -17,7 +17,10 @@ import (
 // The other is the Application side. The Application side is sneaky, it trickles into
 // many places; try and note entry point methods for Application goroutines.
 
+// Really don't like this data structure, it's confusing - what does it model, what is a 'stream'?
 type stream struct {
+	id uint32
+
 	// This is our sides subscribing to the remote publisher
 	in rs.Subscriber
 
@@ -61,6 +64,10 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 		p.handleRequestN(f)
 	case header.FTFireAndForget:
 		p.handleFireAndForget(f)
+	case header.FTRequestSubscription:
+		p.handleRequestStream(f, p.Handler.HandleRequestSubscription)
+	case header.FTRequestStream:
+		p.handleRequestStream(f, p.Handler.HandleRequestStream)
 	default:
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
@@ -72,7 +79,7 @@ func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 	var streamId = f.StreamID()
 	var theStream *stream = p.streams[streamId]
 	if theStream == nil {
-		theStream = p.createStream(streamId, f)
+		theStream = p.createChannel(streamId, f)
 		if n := request.InitialRequestN(f); n > 0 {
 			theStream.out.Request(int(n))
 		}
@@ -109,10 +116,40 @@ func (p *Protocol) handleRequestN(f *frame.Frame) {
 	}
 	stream.out.Request(int(requestn.RequestN(f)))
 }
+func (p *Protocol) handleRequestStream(f *frame.Frame, handler func(rs.Payload) rs.Publisher) {
+	var streamId = f.StreamID()
+	var theStream *stream = p.streams[streamId]
+	if theStream == nil {
+		theStream = p.createStream(streamId, handler(f))
+		if n := request.InitialRequestN(f); n > 0 {
+			theStream.out.Request(int(n))
+		}
+		return
+	} else {
+		panic(fmt.Sprintf("Protocol violation: %d is already a stream in use.", streamId))
+	}
+}
+
+func (p *Protocol) createStream(streamId uint32, out rs.Publisher) *stream {
+	newStream := &stream{id: streamId}
+	p.streams[streamId] = newStream
+
+	out.Subscribe(&remoteStreamSubscriber{
+		s:   newStream,
+		out: p.out,
+	})
+
+	if newStream.out == nil {
+		panic("Programming error: Provided RequestHandler#HandleChannel(..) returned a Publisher " +
+			"that did not call OnSubscribe when Subscribed to. This is not supported.")
+	}
+	return newStream
+}
 
 // TODO This whole *stream should be pooled on the Protocol instance and reused
-func (p *Protocol) createStream(streamId uint32, initial *frame.Frame) *stream {
-	newStream := &stream{}
+// TODO something something this is the same as createStream
+func (p *Protocol) createChannel(streamId uint32, initial *frame.Frame) *stream {
+	newStream := &stream{id: streamId}
 	p.streams[streamId] = newStream
 
 	var out = p.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
@@ -125,21 +162,10 @@ func (p *Protocol) createStream(streamId uint32, initial *frame.Frame) *stream {
 		})
 	}))
 
-	out.Subscribe(rs.NewSubscriber(
-		func(subscription rs.Subscription) {
-			newStream.out = subscription
-		},
-		func(val rs.Payload) {
-			p.out.sendResponse(streamId, val)
-		},
-		func(err error) {
-			p.out.sendError(streamId, err)
-		},
-		func() {
-			// TODO: When do we clean up the stream reference?
-			p.out.sendResponseComplete(streamId)
-		},
-	))
+	out.Subscribe(&remoteStreamSubscriber{
+		s:   newStream,
+		out: p.out,
+	})
 
 	if newStream.in == nil {
 		panic("Programming error: Provided RequestHandler#HandleChannel(..) did not call " +
@@ -179,6 +205,25 @@ func (r *remoteStreamSubscription) Request(n int) {
 // Called by Application
 func (r *remoteStreamSubscription) Cancel() {
 
+}
+
+type remoteStreamSubscriber struct {
+	s   *stream
+	out *output
+}
+
+func (s *remoteStreamSubscriber) OnSubscribe(subscription rs.Subscription) {
+	s.s.out = subscription
+}
+func (s *remoteStreamSubscriber) OnNext(val rs.Payload) {
+	s.out.sendResponse(s.s.id, val)
+}
+func (s *remoteStreamSubscriber) OnError(err error) {
+	s.out.sendError(s.s.id, err)
+}
+func (s *remoteStreamSubscriber) OnComplete() {
+	// TODO: When do we clean up the stream reference?
+	s.out.sendResponseComplete(s.s.id)
 }
 
 // API to send outbound Frames. All methods on this struct can be expected to be called

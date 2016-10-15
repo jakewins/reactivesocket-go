@@ -102,9 +102,11 @@ func runServer(port int, path string) {
 
 	var server tcp.Server
 	handler := &rs.RequestHandler{
-		HandleRequestResponse: requestResponseHandler(requestResponseMarbles),
-		HandleChannel:         channelHandler(channels),
-		HandleFireAndForget:   fireAndForgetHandler(&server),
+		HandleRequestResponse:     requestResponseHandler(requestResponseMarbles),
+		HandleChannel:             channelHandler(channels),
+		HandleFireAndForget:       fireAndForgetHandler(&server),
+		HandleRequestStream:       streamHandler(requestStreamMarbles),
+		HandleRequestSubscription: subscriptionHandler(requestStreamMarbles),
 	}
 
 	address := ":" + strconv.Itoa(port)
@@ -142,6 +144,19 @@ func fireAndForgetHandler(server *tcp.Server) func(rs.Payload) {
 		}
 	}
 }
+func streamHandler(scripts map[string]map[string]string) func(rs.Payload) rs.Publisher {
+	return subscriptionHandler(scripts)
+}
+func subscriptionHandler(scripts map[string]map[string]string) func(rs.Payload) rs.Publisher {
+	return func(init rs.Payload) rs.Publisher {
+		script := scripts[string(init.Data())][string(init.Metadata())]
+		pub := NewPuppetPublisher()
+
+		go playMarble(script, pub)
+
+		return pub
+	}
+}
 
 func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber, out *puppetPublisher) {
 	// First inbound message used to determine how to behave
@@ -156,17 +171,7 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 		args := strings.Split(command, "%%")
 		switch args[0] {
 		case "respond":
-			for _, c := range args[1] {
-				switch string(c) {
-				case "-": // do nothing
-				case "|": // completed stream
-					out.complete()
-				case "#": // error
-					out.causeError()
-				default:
-					out.publish(rs.NewPayload(nil, []byte(string(c))))
-				}
-			}
+			playMarble(args[1], out)
 		case "request":
 			in.request(parseInt(args[1]))
 		case "await":
@@ -191,6 +196,20 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 			}
 		default:
 			panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
+		}
+	}
+}
+
+func playMarble(marble string, out *puppetPublisher) {
+	for _, c := range marble {
+		switch string(c) {
+		case "-": // do nothing
+		case "|": // completed stream
+			out.complete()
+		case "#": // error
+			out.causeError()
+		default:
+			out.publish(rs.NewPayload(nil, []byte(string(c))))
 		}
 	}
 }
