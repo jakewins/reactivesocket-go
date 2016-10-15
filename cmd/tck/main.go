@@ -106,7 +106,7 @@ func runServer(port int, path string) {
 		HandleChannel:             channelHandler(channels),
 		HandleFireAndForget:       fireAndForgetHandler(&server),
 		HandleRequestStream:       streamHandler(requestStreamMarbles),
-		HandleRequestSubscription: subscriptionHandler(requestStreamMarbles),
+		HandleRequestSubscription: subscriptionHandler(requestSubscriptionMarbles),
 	}
 
 	address := ":" + strconv.Itoa(port)
@@ -201,6 +201,7 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 }
 
 func playMarble(marble string, out *puppetPublisher) {
+	fmt.Printf("Playing marble `%s`", marble)
 	for _, c := range marble {
 		switch string(c) {
 		case "-": // do nothing
