@@ -153,7 +153,10 @@ func subscriptionHandler(scripts map[string]map[string]string) func(rs.Payload) 
 		script := scripts[string(init.Data())][string(init.Metadata())]
 		pub := NewPuppetPublisher()
 
-		go playMarble(script, pub)
+		var marbleWork = make(chan string, 2)
+		go marbleWorker(marbleWork, pub)
+		marbleWork <- script
+		marbleWork <- "EOF"
 
 		return pub
 	}
@@ -166,27 +169,34 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 	if err != nil {
 		panic(err.Error())
 	}
+	key := fmt.Sprintf("%s:%s", string(init.Data()), string(init.Metadata()))
 	script := channels[string(init.Data())][string(init.Metadata())]
+
+	fmt.Printf("[%s] Starting worker\n", key)
+
+	var marbleWork = make(chan string, 2)
+	defer func() { marbleWork <- "EOF" }()
+	go marbleWorker(marbleWork, out)
 
 	for _, command := range script {
 		args := strings.Split(command, "%%")
 		switch args[0] {
 		case "respond":
-			playMarble(args[1], out)
+			marbleWork <- args[1]
 		case "request":
 			in.request(parseInt(args[1]))
 		case "await":
 			switch args[1] {
 			case "atLeast":
 				if err := in.awaitAtLeast(parseInt(args[3])); err != nil {
-					panic(err.Error())
+					panic(fmt.Sprintf("[%s] %s", key, err.Error()))
 				}
 			case "terminal":
 				if err := in.awaitTerminal(); err != nil {
-					panic(err.Error())
+					panic(fmt.Sprintf("[%s] %s", key, err.Error()))
 				}
 			default:
-				panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
+				panic(fmt.Sprintf("[%s] Unknown TCK command for channel: %v", key, args))
 			}
 		case "assert":
 			switch args[1] {
@@ -196,46 +206,53 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 				}
 			}
 		default:
-			panic(fmt.Sprintf("Unknown TCK command for channel: %v", args))
+			panic(fmt.Sprintf("[%s] Unknown TCK command for channel: %v", key, args))
 		}
 	}
 }
 
-func playMarble(marble string, out *puppetPublisher) {
-	var payload = func(key string) rs.Payload {
-		return rs.NewPayload([]byte(key), []byte(key))
-	}
-	if strings.Contains(marble, "&&") {
-		parts := strings.Split(marble, "&&")
-		marble = parts[0]
-		var args map[string]map[string]string
-		if err := json.Unmarshal([]byte(parts[1]), &args); err != nil {
-			panic(err)
+func marbleWorker(work chan string, out *puppetPublisher) {
+	var marble string
+	for {
+		marble = <-work
+		if marble == "EOF" {
+			return
 		}
-		payload = func(key string) rs.Payload {
-			var mappedPayload = args[key]
-			if mappedPayload == nil {
-				return rs.NewPayload([]byte(key), []byte(key))
-			}
-			for k, v := range mappedPayload {
-				return rs.NewPayload([]byte(v), []byte(k))
-			}
-			panic("Should never reach here.")
+		var payload = func(key string) rs.Payload {
+			return rs.NewPayload([]byte(key), []byte(key))
 		}
-		fmt.Printf("Playing marble `%s` %v\n", marble, args)
-	} else {
-		fmt.Printf("Playing marble `%s`\n", marble)
-	}
+		if strings.Contains(marble, "&&") {
+			parts := strings.Split(marble, "&&")
+			marble = parts[0]
+			var args map[string]map[string]string
+			if err := json.Unmarshal([]byte(parts[1]), &args); err != nil {
+				panic(err)
+			}
+			payload = func(key string) rs.Payload {
+				var mappedPayload = args[key]
+				if mappedPayload == nil {
+					return rs.NewPayload([]byte(key), []byte(key))
+				}
+				for k, v := range mappedPayload {
+					return rs.NewPayload([]byte(v), []byte(k))
+				}
+				panic("Should never reach here.")
+			}
+			fmt.Printf("Playing marble `%s` %v\n", marble, args)
+		} else {
+			fmt.Printf("Playing marble `%s`\n", marble)
+		}
 
-	for _, c := range marble {
-		switch string(c) {
-		case "-": // do nothing
-		case "|": // completed stream
-			out.complete()
-		case "#": // error
-			out.causeError()
-		default:
-			out.publish(payload(string(c)))
+		for _, c := range marble {
+			switch string(c) {
+			case "-": // do nothing
+			case "|": // completed stream
+				out.complete()
+			case "#": // error
+				out.causeError()
+			default:
+				out.publish(payload(string(c)))
+			}
 		}
 	}
 }

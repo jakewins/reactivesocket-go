@@ -8,6 +8,7 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
+	"io"
 	"sync"
 	"sync/atomic"
 )
@@ -26,6 +27,8 @@ type stream struct {
 
 	// This is our sides subscription control for the remote subscriber
 	out rs.Subscription
+
+	dispose func(s *stream)
 }
 
 type Protocol struct {
@@ -73,7 +76,10 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 	}
 }
 func (p *Protocol) HandleEOF() {
-	// Close all open streams
+	for _, s := range p.streams {
+		s.in.OnError(io.EOF)
+		s.dispose(s)
+	}
 }
 func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 	var streamId = f.StreamID()
@@ -130,8 +136,12 @@ func (p *Protocol) handleRequestStream(f *frame.Frame, handler func(rs.Payload) 
 	}
 }
 
+func (p *Protocol) disposeOfStream(s *stream) {
+	delete(p.streams, s.id)
+}
+
 func (p *Protocol) createStream(streamId uint32, out rs.Publisher) *stream {
-	newStream := &stream{id: streamId}
+	newStream := &stream{id: streamId, dispose: p.disposeOfStream}
 	p.streams[streamId] = newStream
 
 	out.Subscribe(&remoteStreamSubscriber{
@@ -149,7 +159,7 @@ func (p *Protocol) createStream(streamId uint32, out rs.Publisher) *stream {
 // TODO This whole *stream should be pooled on the Protocol instance and reused
 // TODO something something this is the same as createStream
 func (p *Protocol) createChannel(streamId uint32, initial *frame.Frame) *stream {
-	newStream := &stream{id: streamId}
+	newStream := &stream{id: streamId, dispose: p.disposeOfStream}
 	p.streams[streamId] = newStream
 
 	var out = p.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
@@ -204,7 +214,7 @@ func (r *remoteStreamSubscription) Request(n int) {
 
 // Called by Application
 func (r *remoteStreamSubscription) Cancel() {
-
+	panic("Cancel not yet implemented")
 }
 
 type remoteStreamSubscriber struct {
