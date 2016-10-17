@@ -84,6 +84,16 @@ var scenarios = []scenario{
 			},
 		},
 	},
+	{
+		"RequestResponse happy path", &rs.RequestHandler{
+			HandleRequestResponse: requestResponseSuccess(1),
+		}, exchanges{
+			exchange{
+				in{frame.Request(1337, 0, header.FTRequestResponse, nil, nil)},
+				out{frame.Response(1337, header.FlagResponseComplete, nil, []byte{0, 0, 0, 1})},
+			},
+		},
+	},
 }
 
 func TestScenarios(t *testing.T) {
@@ -215,6 +225,13 @@ func channelFactory(in func(rs.Publisher), out func() rs.Publisher) func(rs.Publ
 
 func fireAndForgetSuccess(p rs.Payload) {
 
+}
+
+func requestResponseSuccess(respond uint32) func(rs.Payload) rs.Publisher {
+	createPublisher := sequencer(respond, respond+1)
+	return func(p rs.Payload) rs.Publisher {
+		return createPublisher()
+	}
 }
 
 func min(a, b int) int {

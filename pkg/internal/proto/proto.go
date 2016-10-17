@@ -67,6 +67,8 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 		p.handleRequestN(f)
 	case header.FTFireAndForget:
 		p.handleFireAndForget(f)
+	case header.FTRequestResponse:
+		p.handleRequestResponse(f)
 	case header.FTRequestSubscription:
 		p.handleRequestStream(f, p.Handler.HandleRequestSubscription)
 	case header.FTRequestStream:
@@ -121,6 +123,19 @@ func (p *Protocol) handleRequestN(f *frame.Frame) {
 		return
 	}
 	stream.out.Request(int(requestn.RequestN(f)))
+}
+func (p *Protocol) handleRequestResponse(f *frame.Frame) {
+	streamId := f.StreamID()
+	newStream := &stream{id: streamId, dispose: p.disposeOfStream}
+	p.streams[streamId] = newStream
+
+	out := p.Handler.HandleRequestResponse(f)
+	out.Subscribe(&remoteRequestResponseSubscriber{
+		s:   newStream,
+		out: p.out,
+	})
+
+	newStream.out.Request(1)
 }
 func (p *Protocol) handleRequestStream(f *frame.Frame, handler func(rs.Payload) rs.Publisher) {
 	var streamId = f.StreamID()
@@ -230,10 +245,30 @@ func (s *remoteStreamSubscriber) OnNext(val rs.Payload) {
 }
 func (s *remoteStreamSubscriber) OnError(err error) {
 	s.out.sendError(s.s.id, err)
+	// TODO dispose
 }
 func (s *remoteStreamSubscriber) OnComplete() {
-	// TODO: When do we clean up the stream reference?
 	s.out.sendResponseComplete(s.s.id)
+	// TODO: dispose
+}
+
+type remoteRequestResponseSubscriber struct {
+	s   *stream
+	out *output
+}
+
+func (s *remoteRequestResponseSubscriber) OnSubscribe(subscription rs.Subscription) {
+	s.s.out = subscription
+}
+func (s *remoteRequestResponseSubscriber) OnNext(val rs.Payload) {
+	s.out.sendResponseCompleteWithPayload(s.s.id, val)
+}
+func (s *remoteRequestResponseSubscriber) OnError(err error) {
+	s.out.sendError(s.s.id, err)
+	// TODO dispose
+}
+func (s *remoteRequestResponseSubscriber) OnComplete() {
+	// TODO: dispose
 }
 
 // API to send outbound Frames. All methods on this struct can be expected to be called
@@ -270,6 +305,13 @@ func (out *output) sendResponseComplete(streamId uint32) {
 	out.lock.Lock()
 	defer out.lock.Unlock()
 	if err := out.send(frame.EncodeResponse(out.f, streamId, header.FlagResponseComplete, nil, nil)); err != nil {
+		panic(err.Error()) // TODO
+	}
+}
+func (out *output) sendResponseCompleteWithPayload(streamId uint32, val rs.Payload) {
+	out.lock.Lock()
+	defer out.lock.Unlock()
+	if err := out.send(frame.EncodeResponse(out.f, streamId, header.FlagResponseComplete, val.Metadata(), val.Data())); err != nil {
 		panic(err.Error()) // TODO
 	}
 }
