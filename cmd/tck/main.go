@@ -122,11 +122,6 @@ func runServer(port int, path string) {
 	log.Fatal(server.Serve())
 }
 
-func requestResponseHandler(scripts map[string]map[string]string) func(rs.Payload) rs.Publisher {
-	return func(firstPacket rs.Payload) rs.Publisher {
-		return nil
-	}
-}
 func channelHandler(channels map[string]map[string][]string) func(rs.Publisher) rs.Publisher {
 	return func(in rs.Publisher) rs.Publisher {
 		sub := NewPuppetSubscriber()
@@ -144,6 +139,10 @@ func fireAndForgetHandler(server *tcp.Server) func(rs.Payload) {
 			(*server).Shutdown()
 		}
 	}
+}
+
+func requestResponseHandler(scripts map[string]map[string]string) func(rs.Payload) rs.Publisher {
+	return subscriptionHandler(scripts)
 }
 func streamHandler(scripts map[string]map[string]string) func(rs.Payload) rs.Publisher {
 	return subscriptionHandler(scripts)

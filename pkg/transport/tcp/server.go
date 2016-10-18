@@ -143,7 +143,7 @@ func (c *conn) serve() {
 		if err := c.dec.Read(f); err != nil {
 			if err == io.EOF {
 				fmt.Printf("[Client C%d] EOF\n", c.id)
-				c.protocol.HandleEOF()
+				c.protocol.Terminate()
 				return
 			}
 			fmt.Println("Failed to read frame; also, programmer failed to write error handling")

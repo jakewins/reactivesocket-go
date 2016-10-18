@@ -18,19 +18,6 @@ import (
 // The other is the Application side. The Application side is sneaky, it trickles into
 // many places; try and note entry point methods for Application goroutines.
 
-// Really don't like this data structure, it's confusing - what does it model, what is a 'stream'?
-type stream struct {
-	id uint32
-
-	// This is our sides subscribing to the remote publisher
-	in rs.Subscriber
-
-	// This is our sides subscription control for the remote subscriber
-	out rs.Subscription
-
-	dispose func(s *stream)
-}
-
 type Protocol struct {
 	// This is the application-provided description of behavior;
 	// eg. we handle the plumbing in and out of this, this Handler
@@ -39,8 +26,8 @@ type Protocol struct {
 
 	out *output
 
-	// Only manipulated from HandleFrame, so no synchronization
-	streams map[uint32]*stream
+	localSubscribers   map[uint32]rs.Subscriber
+	localSubscriptions map[uint32]rs.Subscription
 }
 
 func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol {
@@ -48,9 +35,10 @@ func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol 
 		panic("Cannot create protocol instance with a nil RequestHandler, please provice a non-nil handler.")
 	}
 	return &Protocol{
-		Handler: h,
-		streams: make(map[uint32]*stream),
-		out:     &output{send: send, f: &frame.Frame{}},
+		Handler:            h,
+		out:                &output{send: send, f: &frame.Frame{}},
+		localSubscribers:   make(map[uint32]rs.Subscriber),
+		localSubscriptions: make(map[uint32]rs.Subscription),
 	}
 }
 
@@ -70,34 +58,21 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 	case header.FTRequestResponse:
 		p.handleRequestResponse(f)
 	case header.FTRequestSubscription:
-		p.handleRequestStream(f, p.Handler.HandleRequestSubscription)
+		p.handleRequestStream(f, p.Handler.HandleRequestSubscription(f))
 	case header.FTRequestStream:
-		p.handleRequestStream(f, p.Handler.HandleRequestStream)
+		p.handleRequestStream(f, p.Handler.HandleRequestStream(f))
 	default:
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
 }
-func (p *Protocol) HandleEOF() {
-	for _, s := range p.streams {
-		s.in.OnError(io.EOF)
-		s.dispose(s)
+func (p *Protocol) Terminate() {
+	for streamId, s := range p.localSubscribers {
+		s.OnError(io.EOF)
+		delete(p.localSubscribers, streamId)
 	}
-}
-func (p *Protocol) handleRequestChannel(f *frame.Frame) {
-	var streamId = f.StreamID()
-	var theStream *stream = p.streams[streamId]
-	if theStream == nil {
-		theStream = p.createChannel(streamId, f)
-		if n := request.InitialRequestN(f); n > 0 {
-			theStream.out.Request(int(n))
-		}
-		return
-	}
-
-	if request.IsCompleteChannel(f) {
-		theStream.in.OnComplete()
-	} else {
-		theStream.in.OnNext(f)
+	for streamId, s := range p.localSubscriptions {
+		s.Cancel()
+		delete(p.localSubscriptions, streamId)
 	}
 }
 func (p *Protocol) handleFireAndForget(f *frame.Frame) {
@@ -109,103 +84,80 @@ func (p *Protocol) handleKeepAlive(f *frame.Frame) {
 	}
 }
 func (p *Protocol) handleResponse(f *frame.Frame) {
-	var stream = p.streams[f.StreamID()]
-	if stream == nil {
+	var s = p.localSubscribers[f.StreamID()]
+	if s == nil {
 		// TODO: need to sort out protocol deal here
 		return
 	}
-	stream.in.OnNext(f)
+	s.OnNext(f)
 }
 func (p *Protocol) handleRequestN(f *frame.Frame) {
-	var stream = p.streams[f.StreamID()]
-	if stream == nil {
+	var s = p.localSubscriptions[f.StreamID()]
+	if s == nil {
 		// TODO: need to sort out protocol deal here
 		return
 	}
-	stream.out.Request(int(requestn.RequestN(f)))
+	s.Request(int(requestn.RequestN(f)))
 }
 func (p *Protocol) handleRequestResponse(f *frame.Frame) {
 	streamId := f.StreamID()
-	newStream := &stream{id: streamId, dispose: p.disposeOfStream}
-	p.streams[streamId] = newStream
-
 	out := p.Handler.HandleRequestResponse(f)
 	out.Subscribe(&remoteRequestResponseSubscriber{
-		s:   newStream,
-		out: p.out,
+		streamId: streamId,
+		out:      p.out,
 	})
-
-	newStream.out.Request(1)
 }
-func (p *Protocol) handleRequestStream(f *frame.Frame, handler func(rs.Payload) rs.Publisher) {
+func (p *Protocol) handleRequestStream(f *frame.Frame, pub rs.Publisher) {
 	var streamId = f.StreamID()
-	var theStream *stream = p.streams[streamId]
-	if theStream == nil {
-		theStream = p.createStream(streamId, handler(f))
+	var s = p.localSubscriptions[f.StreamID()]
+	if s == nil {
+		pub.Subscribe(&remoteSubscriber{
+			streamId:           streamId,
+			localSubscriptions: p.localSubscriptions,
+			out:                p.out,
+		})
+		s = p.localSubscriptions[f.StreamID()]
+
+		if s == nil {
+			panic("Programming error: Provided RequestHandler#HandleChannel(..) returned a Publisher " +
+				"that did not call OnSubscribe when Subscribed to. This is not supported.")
+		}
+
 		if n := request.InitialRequestN(f); n > 0 {
-			theStream.out.Request(int(n))
+			s.Request(int(n))
 		}
 		return
 	} else {
 		panic(fmt.Sprintf("Protocol violation: %d is already a stream in use.", streamId))
 	}
 }
-
-func (p *Protocol) disposeOfStream(s *stream) {
-	delete(p.streams, s.id)
-}
-
-func (p *Protocol) createStream(streamId uint32, out rs.Publisher) *stream {
-	newStream := &stream{id: streamId, dispose: p.disposeOfStream}
-	p.streams[streamId] = newStream
-
-	out.Subscribe(&remoteStreamSubscriber{
-		s:   newStream,
-		out: p.out,
-	})
-
-	if newStream.out == nil {
-		panic("Programming error: Provided RequestHandler#HandleChannel(..) returned a Publisher " +
-			"that did not call OnSubscribe when Subscribed to. This is not supported.")
-	}
-	return newStream
-}
-
-// TODO This whole *stream should be pooled on the Protocol instance and reused
-// TODO something something this is the same as createStream
-func (p *Protocol) createChannel(streamId uint32, initial *frame.Frame) *stream {
-	newStream := &stream{id: streamId, dispose: p.disposeOfStream}
-	p.streams[streamId] = newStream
-
-	var out = p.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
-		newStream.in = s
-		s.OnSubscribe(&remoteStreamSubscription{
-			streamId:   streamId,
-			initial:    rs.CopyPayload(initial),
-			subscriber: s,
-			out:        p.out,
-		})
-	}))
-
-	out.Subscribe(&remoteStreamSubscriber{
-		s:   newStream,
-		out: p.out,
-	})
-
-	if newStream.in == nil {
-		panic("Programming error: Provided RequestHandler#HandleChannel(..) did not call " +
-			"Subscribe on the provided publisher immediately when invoked. This is not supported.")
-	}
-	if newStream.out == nil {
-		panic("Programming error: Provided RequestHandler#HandleChannel(..) returned a Publisher " +
-			"that did not call OnSubscribe when Subscribed to. This is not supported.")
+func (p *Protocol) handleRequestChannel(f *frame.Frame) {
+	var streamId = f.StreamID()
+	var subscription = p.localSubscriptions[streamId]
+	var subscriber = p.localSubscribers[streamId]
+	if subscriber == nil && subscription == nil {
+		p.handleRequestStream(f, p.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
+			p.localSubscribers[streamId] = s
+			s.OnSubscribe(&subscriptionToRemoteStream{
+				streamId:   streamId,
+				initial:    rs.CopyPayload(f),
+				subscriber: s,
+				out:        p.out,
+			})
+		})))
+		return
 	}
 
-	return newStream
+	if request.IsCompleteChannel(f) {
+		subscriber.OnComplete()
+		delete(p.localSubscribers, streamId)
+	} else {
+		subscriber.OnNext(f)
+	}
 }
 
 // This is the applications subscription to the remote stream
-type remoteStreamSubscription struct {
+type subscriptionToRemoteStream struct {
 	started    int32
 	streamId   uint32
 	initial    rs.Payload
@@ -214,7 +166,7 @@ type remoteStreamSubscription struct {
 }
 
 // Called by Application
-func (r *remoteStreamSubscription) Request(n int) {
+func (r *subscriptionToRemoteStream) Request(n int) {
 	// A bit precarious here; for efficiencies sake, the first payload
 	// in a channel is bundled with the Request to start the channel.
 	// Hence, the first req the App makes is immediately fulfilled.
@@ -228,48 +180,49 @@ func (r *remoteStreamSubscription) Request(n int) {
 }
 
 // Called by Application
-func (r *remoteStreamSubscription) Cancel() {
+func (r *subscriptionToRemoteStream) Cancel() {
 	panic("Cancel not yet implemented")
 }
 
-type remoteStreamSubscriber struct {
-	s   *stream
-	out *output
+// Represents the remote subscriber - sending messages to this will have them delivered over
+// the transport.
+type remoteSubscriber struct {
+	streamId           uint32
+	localSubscriptions map[uint32]rs.Subscription
+	out                *output
 }
 
-func (s *remoteStreamSubscriber) OnSubscribe(subscription rs.Subscription) {
-	s.s.out = subscription
+func (s *remoteSubscriber) OnSubscribe(subscription rs.Subscription) {
+	s.localSubscriptions[s.streamId] = subscription
 }
-func (s *remoteStreamSubscriber) OnNext(val rs.Payload) {
-	s.out.sendResponse(s.s.id, val)
+func (s *remoteSubscriber) OnNext(val rs.Payload) {
+	s.out.sendResponse(s.streamId, val)
 }
-func (s *remoteStreamSubscriber) OnError(err error) {
-	s.out.sendError(s.s.id, err)
-	// TODO dispose
+func (s *remoteSubscriber) OnError(err error) {
+	s.out.sendError(s.streamId, err)
+	delete(s.localSubscriptions, s.streamId)
 }
-func (s *remoteStreamSubscriber) OnComplete() {
-	s.out.sendResponseComplete(s.s.id)
-	// TODO: dispose
+func (s *remoteSubscriber) OnComplete() {
+	s.out.sendResponseComplete(s.streamId)
+	delete(s.localSubscriptions, s.streamId)
 }
 
+// Represents a remote request/response subscriber, waiting for its single response.
 type remoteRequestResponseSubscriber struct {
-	s   *stream
-	out *output
+	streamId uint32
+	out      *output
 }
 
 func (s *remoteRequestResponseSubscriber) OnSubscribe(subscription rs.Subscription) {
-	s.s.out = subscription
+	subscription.Request(1)
 }
 func (s *remoteRequestResponseSubscriber) OnNext(val rs.Payload) {
-	s.out.sendResponseCompleteWithPayload(s.s.id, val)
+	s.out.sendResponseCompleteWithPayload(s.streamId, val)
 }
 func (s *remoteRequestResponseSubscriber) OnError(err error) {
-	s.out.sendError(s.s.id, err)
-	// TODO dispose
+	s.out.sendError(s.streamId, err)
 }
-func (s *remoteRequestResponseSubscriber) OnComplete() {
-	// TODO: dispose
-}
+func (s *remoteRequestResponseSubscriber) OnComplete() {}
 
 // API to send outbound Frames. All methods on this struct can be expected to be called
 // by both Application and Transport goroutines
