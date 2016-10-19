@@ -19,4 +19,5 @@ type RequestHandler struct {
 	HandleRequestSubscription func(Payload) Publisher
 	HandleChannel             func(Publisher) Publisher
 	HandleFireAndForget       func(Payload)
+	HandleMetadataPush        func(Payload)
 }

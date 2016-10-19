@@ -63,6 +63,8 @@ func (f *Frame) Describe() string {
 		return response.Describe(f.Buf)
 	case header.FTFireAndForget:
 		return request.Describe(f.Buf)
+	case header.FTMetadataPush:
+		return request.Describe(f.Buf)
 	case header.FTRequestChannel:
 		return request.Describe(f.Buf)
 	case header.FTRequestStream:
@@ -85,6 +87,8 @@ func (f *Frame) payloadOffset() int {
 	case header.FTSetup:
 		return setup.PayloadOffset(f.Buf)
 	case header.FTFireAndForget:
+		return request.PayloadOffset()
+	case header.FTMetadataPush:
 		return request.PayloadOffset()
 	case header.FTRequestResponse:
 		return request.PayloadOffset()

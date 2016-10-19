@@ -94,6 +94,16 @@ var scenarios = []scenario{
 			},
 		},
 	},
+	{
+		"MetaData push happy path", &rs.RequestHandler{
+			HandleMetadataPush: func(p rs.Payload) {},
+		}, exchanges{
+			exchange{
+				in{frame.Request(1337, 0, header.FTMetadataPush, nil, nil)},
+				out{},
+			},
+		},
+	},
 }
 
 func TestScenarios(t *testing.T) {

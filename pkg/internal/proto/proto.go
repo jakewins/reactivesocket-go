@@ -61,6 +61,8 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 		p.handleRequestStream(f, p.Handler.HandleRequestSubscription(f))
 	case header.FTRequestStream:
 		p.handleRequestStream(f, p.Handler.HandleRequestStream(f))
+	case header.FTMetadataPush:
+		p.handleMetadataPush(f)
 	default:
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
@@ -98,6 +100,9 @@ func (p *Protocol) handleRequestN(f *frame.Frame) {
 		return
 	}
 	s.Request(int(requestn.RequestN(f)))
+}
+func (p *Protocol) handleMetadataPush(f *frame.Frame) {
+	p.Handler.HandleMetadataPush(f)
 }
 func (p *Protocol) handleRequestResponse(f *frame.Frame) {
 	streamId := f.StreamID()

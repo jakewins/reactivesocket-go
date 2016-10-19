@@ -63,6 +63,8 @@ func PayloadOffsetWithInitialN() int {
 
 func InitialRequestN(b []byte) uint32 {
 	switch header.FrameType(b) {
+	case header.FTMetadataPush:
+		return 0
 	case header.FTFireAndForget:
 		return 0
 	case header.FTRequestResponse:
@@ -102,6 +104,9 @@ func Describe(b []byte) string {
 		payloadOffset = PayloadOffset
 	case header.FTFireAndForget:
 		frameName = "FireAndForget"
+		payloadOffset = PayloadOffset
+	case header.FTMetadataPush:
+		frameName = "MetadataPush"
 		payloadOffset = PayloadOffset
 	default:
 		panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
