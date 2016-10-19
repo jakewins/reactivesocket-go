@@ -138,8 +138,9 @@ name%%requestSubscriptionEmpty
 pass
 subscribe%%sub%%45b30235-cd9c-41c3-b760-0907cc461363%%a%%b
 request%%1%%45b30235-cd9c-41c3-b760-0907cc461363
+await%%terminal%%415235f9-9f56-4f20-84a1-d7a15dd7daf9
 assert%%no_error%%45b30235-cd9c-41c3-b760-0907cc461363
-assert%%no_completed%%45b30235-cd9c-41c3-b760-0907cc461363
+assert%%completed%%45b30235-cd9c-41c3-b760-0907cc461363
 await%%no_events%%45b30235-cd9c-41c3-b760-0907cc461363%%1000
 assert%%received_n%%45b30235-cd9c-41c3-b760-0907cc461363%%0
 !

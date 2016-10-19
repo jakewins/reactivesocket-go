@@ -2,6 +2,7 @@ package frame
 
 import (
 	"fmt"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/cancel"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/errorc"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/header"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/codec/keepalive"
@@ -72,6 +73,8 @@ func (f *Frame) Describe() string {
 		return request.Describe(f.Buf)
 	case header.FTError:
 		return errorc.Describe(f.Buf)
+	case header.FTCancel:
+		return cancel.Describe(f.Buf)
 	default:
 		return fmt.Sprintf("UnknownFrame{type=%d, contents=% x}", f.Type(), f.Buf)
 	}
@@ -97,6 +100,8 @@ func (f *Frame) payloadOffset() int {
 		return response.PayloadOffset()
 	case header.FTError:
 		return errorc.PayloadOffset()
+	case header.FTCancel:
+		return cancel.PayloadOffset()
 	}
 	// TODO, I don't think we should use Panic like this; it's a legitimate
 	//       condition that the remote implementation may send us invalid
@@ -136,6 +141,10 @@ func EncodeRequestN(f *Frame, streamId, requestN uint32) *Frame {
 	requestn.Encode(&f.Buf, streamId, requestN)
 	return f
 }
+func EncodeCancel(f *Frame, streamId uint32) *Frame {
+	cancel.Encode(&f.Buf, streamId)
+	return f
+}
 func EncodeError(f *Frame, streamId, errorCode uint32, metadata, data []byte) *Frame {
 	errorc.Encode(&f.Buf, streamId, errorCode, metadata, data)
 	return f
@@ -143,34 +152,28 @@ func EncodeError(f *Frame, streamId, errorCode uint32, metadata, data []byte) *F
 
 func Setup(flags uint16, keepaliveInterval, maxLifetime uint32,
 	metadataMimeType, dataMimeType string, metadata, data []byte) *Frame {
-	f := &Frame{}
-	EncodeSetup(f, flags, keepaliveInterval, maxLifetime, metadataMimeType, dataMimeType, metadata, data)
-	return f
+	return EncodeSetup(&Frame{}, flags, keepaliveInterval, maxLifetime, metadataMimeType, dataMimeType, metadata, data)
 }
 func Response(streamId uint32, flags uint16, metadata, data []byte) *Frame {
-	f := &Frame{}
-	EncodeResponse(f, streamId, flags, metadata, data)
-	return f
+	return EncodeResponse(&Frame{}, streamId, flags, metadata, data)
 }
 func Keepalive(respond bool) *Frame {
-	f := &Frame{}
-	return EncodeKeepalive(f, respond)
+	return EncodeKeepalive(&Frame{}, respond)
 }
 func Request(streamId uint32, flags, frameType uint16, metadata, data []byte) *Frame {
-	f := &Frame{}
-	return EncodeRequest(f, streamId, flags, frameType, metadata, data)
+	return EncodeRequest(&Frame{}, streamId, flags, frameType, metadata, data)
 }
 func RequestWithInitialN(streamId, initialN uint32, flags, frameType uint16, metadata, data []byte) *Frame {
-	f := &Frame{}
-	return EncodeRequestWithInitialN(f, streamId, initialN, flags, frameType, metadata, data)
+	return EncodeRequestWithInitialN(&Frame{}, streamId, initialN, flags, frameType, metadata, data)
 }
 func RequestN(streamId, requestN uint32) *Frame {
-	f := &Frame{}
-	return EncodeRequestN(f, streamId, requestN)
+	return EncodeRequestN(&Frame{}, streamId, requestN)
 }
 func Error(streamId, errorCode uint32, metadata, data []byte) *Frame {
-	f := &Frame{}
-	return EncodeError(f, streamId, errorCode, metadata, data)
+	return EncodeError(&Frame{}, streamId, errorCode, metadata, data)
+}
+func Cancel(streamId uint32) *Frame {
+	return EncodeCancel(&Frame{}, streamId)
 }
 
 // Frame encoder/decoder below should be moved out of here

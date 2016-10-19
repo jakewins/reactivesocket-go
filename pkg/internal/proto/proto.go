@@ -181,7 +181,7 @@ func (r *subscriptionToRemoteStream) Request(n int) {
 
 // Called by Application
 func (r *subscriptionToRemoteStream) Cancel() {
-	panic("Cancel not yet implemented")
+	r.out.sendCancel(r.streamId)
 }
 
 // Represents the remote subscriber - sending messages to this will have them delivered over
@@ -272,6 +272,13 @@ func (out *output) sendRequestN(streamId, n uint32) {
 	out.lock.Lock()
 	defer out.lock.Unlock()
 	if err := out.send(frame.EncodeRequestN(out.f, streamId, n)); err != nil {
+		panic(err.Error()) // TODO
+	}
+}
+func (out *output) sendCancel(streamId uint32) {
+	out.lock.Lock()
+	defer out.lock.Unlock()
+	if err := out.send(frame.EncodeCancel(out.f, streamId)); err != nil {
 		panic(err.Error()) // TODO
 	}
 }
