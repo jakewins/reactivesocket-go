@@ -28,6 +28,8 @@ type Protocol struct {
 
 	localSubscribers   map[uint32]rs.Subscriber
 	localSubscriptions map[uint32]rs.Subscription
+
+	nextStreamId uint32
 }
 
 func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol {
@@ -77,6 +79,36 @@ func (p *Protocol) Terminate() {
 		delete(p.localSubscriptions, streamId)
 	}
 }
+func (p *Protocol) RequestStream(initial rs.Payload) rs.Publisher {
+	streamId := p.generateStreamId()
+	initial = rs.CopyPayload(initial)
+	return p.createPublisherForRemoteStream(streamId, func(n int, sub rs.Subscriber) int {
+		p.out.sendRequestWithInitialN(streamId, uint32(n), header.FTRequestStream, initial)
+		return 0
+	})
+}
+func (p *Protocol) RequestChannel(payloads rs.Publisher) rs.Publisher {
+	streamId := p.generateStreamId()
+	return p.createPublisherForRemoteStream(streamId, func(n int, sub rs.Subscriber) int {
+		payloads.Subscribe(&requesterRemoteSubscriber{
+			streamId:           streamId,
+			localSubscriptions: p.localSubscriptions,
+			out:                p.out,
+			initialRequestN:    uint32(n),
+			isFirstPayload:     true,
+		})
+		return 0
+	})
+}
+func (p *Protocol) generateStreamId() uint32 {
+	for {
+		candidate := p.nextStreamId
+		if atomic.CompareAndSwapUint32(&p.nextStreamId, candidate, candidate+2) {
+			return candidate
+		}
+	}
+}
+
 func (p *Protocol) handleFireAndForget(f *frame.Frame) {
 	p.Handler.HandleFireAndForget(f)
 }
@@ -116,7 +148,7 @@ func (p *Protocol) handleRequestStream(f *frame.Frame, pub rs.Publisher) {
 	var streamId = f.StreamID()
 	var s = p.localSubscriptions[f.StreamID()]
 	if s == nil {
-		pub.Subscribe(&remoteSubscriber{
+		pub.Subscribe(&responderRemoteSubscriber{
 			streamId:           streamId,
 			localSubscriptions: p.localSubscriptions,
 			out:                p.out,
@@ -124,7 +156,7 @@ func (p *Protocol) handleRequestStream(f *frame.Frame, pub rs.Publisher) {
 		s = p.localSubscriptions[f.StreamID()]
 
 		if s == nil {
-			panic("Programming error: Provided RequestHandler#HandleChannel(..) returned a Publisher " +
+			panic("Programming error: Provided RequestHandler#HandleXXX(..) returned a Publisher " +
 				"that did not call OnSubscribe when Subscribed to. This is not supported.")
 		}
 
@@ -141,15 +173,12 @@ func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 	var subscription = p.localSubscriptions[streamId]
 	var subscriber = p.localSubscribers[streamId]
 	if subscriber == nil && subscription == nil {
-		p.handleRequestStream(f, p.Handler.HandleChannel(rs.NewPublisher(func(s rs.Subscriber) {
-			p.localSubscribers[streamId] = s
-			s.OnSubscribe(&subscriptionToRemoteStream{
-				streamId:   streamId,
-				initial:    rs.CopyPayload(f),
-				subscriber: s,
-				out:        p.out,
-			})
-		})))
+		firstMessage := rs.CopyPayload(f)
+		p.handleRequestStream(f, p.Handler.HandleChannel(
+			p.createPublisherForRemoteStream(streamId, func(n int, sub rs.Subscriber) int {
+				sub.OnNext(firstMessage)
+				return n - 1
+			})))
 		return
 	}
 
@@ -160,14 +189,24 @@ func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 		subscriber.OnNext(f)
 	}
 }
+func (p *Protocol) createPublisherForRemoteStream(streamId uint32, onFirstRequestN func(int, rs.Subscriber) int) rs.Publisher {
+	return rs.NewPublisher(func(s rs.Subscriber) {
+		p.localSubscribers[streamId] = s
+		s.OnSubscribe(&subscriptionToRemoteStream{
+			streamId:        streamId,
+			onFirstRequestN: onFirstRequestN,
+			subscriber:      s,
+			out:             p.out,
+		})
+	})
+}
 
 // This is the applications subscription to the remote stream
 type subscriptionToRemoteStream struct {
-	started    int32
-	streamId   uint32
-	initial    rs.Payload
-	subscriber rs.Subscriber
-	out        *output
+	streamId        uint32
+	onFirstRequestN func(int, rs.Subscriber) int
+	subscriber      rs.Subscriber
+	out             *output
 }
 
 // Called by Application
@@ -175,9 +214,10 @@ func (r *subscriptionToRemoteStream) Request(n int) {
 	// A bit precarious here; for efficiencies sake, the first payload
 	// in a channel is bundled with the Request to start the channel.
 	// Hence, the first req the App makes is immediately fulfilled.
-	if atomic.CompareAndSwapInt32(&r.started, 0, 1) {
-		r.subscriber.OnNext(r.initial)
-		n -= 1
+	if r.onFirstRequestN != nil {
+		onFirstRequest := r.onFirstRequestN
+		r.onFirstRequestN = nil
+		n = onFirstRequest(n, r.subscriber)
 	}
 	if n > 0 {
 		r.out.sendRequestN(r.streamId, uint32(n))
@@ -191,24 +231,53 @@ func (r *subscriptionToRemoteStream) Cancel() {
 
 // Represents the remote subscriber - sending messages to this will have them delivered over
 // the transport.
-type remoteSubscriber struct {
+type responderRemoteSubscriber struct {
 	streamId           uint32
 	localSubscriptions map[uint32]rs.Subscription
 	out                *output
 }
 
-func (s *remoteSubscriber) OnSubscribe(subscription rs.Subscription) {
+func (s *responderRemoteSubscriber) OnSubscribe(subscription rs.Subscription) {
 	s.localSubscriptions[s.streamId] = subscription
 }
-func (s *remoteSubscriber) OnNext(val rs.Payload) {
+func (s *responderRemoteSubscriber) OnNext(val rs.Payload) {
 	s.out.sendResponse(s.streamId, val)
 }
-func (s *remoteSubscriber) OnError(err error) {
+func (s *responderRemoteSubscriber) OnError(err error) {
 	s.out.sendError(s.streamId, err)
 	delete(s.localSubscriptions, s.streamId)
 }
-func (s *remoteSubscriber) OnComplete() {
+func (s *responderRemoteSubscriber) OnComplete() {
 	s.out.sendResponseComplete(s.streamId)
+	delete(s.localSubscriptions, s.streamId)
+}
+
+type requesterRemoteSubscriber struct {
+	streamId           uint32
+	localSubscriptions map[uint32]rs.Subscription
+	out                *output
+	initialRequestN    uint32
+	isFirstPayload     bool
+}
+
+func (s *requesterRemoteSubscriber) OnSubscribe(subscription rs.Subscription) {
+	s.localSubscriptions[s.streamId] = subscription
+	subscription.Request(1)
+}
+func (s *requesterRemoteSubscriber) OnNext(val rs.Payload) {
+	if s.isFirstPayload {
+		s.isFirstPayload = false
+		s.out.sendRequestWithInitialN(s.streamId, s.initialRequestN, header.FTRequestChannel, val)
+	} else {
+		s.out.sendRequest(s.streamId, header.FTRequestChannel, val)
+	}
+}
+func (s *requesterRemoteSubscriber) OnError(err error) {
+	s.out.sendError(s.streamId, err)
+	delete(s.localSubscriptions, s.streamId)
+}
+func (s *requesterRemoteSubscriber) OnComplete() {
+	//s.out.sendResponseComplete(s.streamId)
 	delete(s.localSubscriptions, s.streamId)
 }
 
@@ -277,6 +346,20 @@ func (out *output) sendRequestN(streamId, n uint32) {
 	out.lock.Lock()
 	defer out.lock.Unlock()
 	if err := out.send(frame.EncodeRequestN(out.f, streamId, n)); err != nil {
+		panic(err.Error()) // TODO
+	}
+}
+func (out *output) sendRequest(streamId uint32, frameType uint16, val rs.Payload) {
+	out.lock.Lock()
+	defer out.lock.Unlock()
+	if err := out.send(frame.EncodeRequest(out.f, streamId, 0, frameType, val.Metadata(), val.Data())); err != nil {
+		panic(err.Error()) // TODO
+	}
+}
+func (out *output) sendRequestWithInitialN(streamId, initialN uint32, frameType uint16, val rs.Payload) {
+	out.lock.Lock()
+	defer out.lock.Unlock()
+	if err := out.send(frame.EncodeRequestWithInitialN(out.f, streamId, initialN, 0, frameType, val.Metadata(), val.Data())); err != nil {
 		panic(err.Error()) // TODO
 	}
 }

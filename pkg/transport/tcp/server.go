@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func NewServer(address string, setup rs.ConnectionSetupHandler) (Server, error) {
+func Listen(address string, setup rs.ConnectionSetupHandler) (Server, error) {
 	laddr, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
 		return nil, err
@@ -68,12 +68,15 @@ func (s *server) Serve() error {
 
 		// TODO: Proper resource handling - close these guys on server close
 		connIds += 1
-		c := &conn{
+		c := &reactiveConn{
 			id:    connIds,
 			rwc:   rwc,
-			setup: s.setup,
+			setup: s.setupConnection,
 		}
-		go c.serve()
+		go func() {
+			c.initialize()
+			c.serve()
+		}()
 	}
 }
 func (s *server) Shutdown() {
@@ -82,34 +85,8 @@ func (s *server) Shutdown() {
 func (s *server) AwaitShutdown() {
 	s.shutdownWaiters.Wait()
 }
-func (s *server) checkForShutdown() bool {
-	select {
-	case <-s.control:
-		s.listener.Close()
-		return true
-	default:
-		return false
-	}
-}
-
-type conn struct {
-	id       int
-	rwc      net.Conn
-	frame    frame.Frame
-	setup    rs.ConnectionSetupHandler
-	protocol *proto.Protocol
-	enc      *frame.FrameEncoder
-	dec      *frame.FrameDecoder
-}
-
-func (c *conn) serve() {
-	// TODO This should wrap in buffered io
-	c.dec = frame.NewFrameDecoder(c.rwc)
-	c.enc = frame.NewFrameEncoder(c.rwc)
-
+func (s *server) setupConnection(c *reactiveConn) (*rs.RequestHandler, error) {
 	f := &c.frame
-
-	// Handle Setup
 	if err := c.dec.Read(f); err != nil {
 		c.fatalError(err)
 	}
@@ -126,7 +103,35 @@ func (c *conn) serve() {
 		metaMime: setup.MetadataMimeType(f),
 	}
 
-	handler, err := c.setup(sp, nil)
+	return s.setup(sp, nil)
+}
+func (s *server) checkForShutdown() bool {
+	select {
+	case <-s.control:
+		s.listener.Close()
+		return true
+	default:
+		return false
+	}
+}
+
+type reactiveConn struct {
+	id       int
+	rwc      net.Conn
+	frame    frame.Frame
+	setup    func(*reactiveConn) (*rs.RequestHandler, error)
+	protocol *proto.Protocol
+	enc      *frame.FrameEncoder
+	dec      *frame.FrameDecoder
+}
+
+func (c *reactiveConn) initialize() {
+	// TODO This should wrap in buffered io
+	c.dec = frame.NewFrameDecoder(c.rwc)
+	c.enc = frame.NewFrameEncoder(c.rwc)
+
+	// Handle Setup
+	handler, err := c.setup(c)
 	if err != nil {
 		c.fatalError(err)
 	}
@@ -134,15 +139,18 @@ func (c *conn) serve() {
 	c.protocol = proto.NewProtocol(
 		handler,
 		func(f *frame.Frame) error {
-			fmt.Printf("[Server C%d] %s\n", c.id, f.Describe())
+			fmt.Printf("[C%d] -> %s\n", c.id, f.Describe())
 			return c.enc.Write(f)
 		},
 	)
+}
 
+func (c *reactiveConn) serve() {
+	f := &c.frame
 	for {
 		if err := c.dec.Read(f); err != nil {
 			if err == io.EOF {
-				fmt.Printf("[Client C%d] EOF\n", c.id)
+				fmt.Printf("[C%d] <- EOF\n", c.id)
 				c.protocol.Terminate()
 				return
 			}
@@ -150,15 +158,15 @@ func (c *conn) serve() {
 			panic(err) // TODO
 		}
 
-		fmt.Printf("[Client C%d] %s\n", c.id, f.Describe())
+		fmt.Printf("[C%d] <- %s\n", c.id, f.Describe())
 
 		c.protocol.HandleFrame(f)
 	}
 }
 
-func (c *conn) fatalError(err error) {
+func (c *reactiveConn) fatalError(err error) {
 	fmt.Println("Programmer failed to write error handling")
-	panic(err)
+	panic(err) // TODO
 }
 
 type setupPayload struct {

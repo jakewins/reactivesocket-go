@@ -17,6 +17,7 @@ import (
 
 var (
 	server bool
+	client bool
 	host   string
 	port   int
 	file   string
@@ -24,6 +25,7 @@ var (
 
 func init() {
 	flag.BoolVar(&server, "server", false, "To launch the server")
+	flag.BoolVar(&client, "client", false, "To launch the client")
 	flag.StringVar(&host, "host", "localhost", "For the client only, determine host to connect to")
 	flag.IntVar(&port, "port", 4567, "For client, port to connect to. For server, port to bind to")
 	flag.StringVar(&file, "file", "", "Path to script file to run")
@@ -34,7 +36,96 @@ func main() {
 
 	if server {
 		runServer(port, file)
+	} else if client {
+		runClient(host, port, file)
 	}
+}
+
+func runClient(host string, port int, path string) {
+	address := host + ":" + strconv.Itoa(port)
+
+	//socket, err := tcp.Dial(address, rs.NewSetupPayload("", "", nil, nil))
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	fmt.Printf("[TCK] Client started, playing script against [%s]\n", address)
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var scripts [][]string
+	var current []string
+	for scanner.Scan() {
+		switch scanner.Text() {
+		case "!":
+			if current != nil {
+				scripts = append(scripts, current)
+			}
+			current = nil
+		default:
+			current = append(current, scanner.Text())
+		}
+	}
+	scripts = append(scripts, current)
+
+	for _, script := range scripts {
+		shouldPass := true
+		name := "Unknown"
+		for i := 0; i < len(script); i++ {
+			line := script[i]
+			parts := strings.Split(line, "%%")
+			switch parts[0] {
+			case "name":
+				name = parts[1]
+				fmt.Printf("[TCK] Starting %s\n", name)
+			case "pass":
+				shouldPass = true
+			case "channel":
+				end := i
+				for ; end < len(script); end++ {
+					line = script[end]
+					if line == "}" {
+						break
+					}
+				}
+				outcome := clientChannel(address, script[i:end])
+				i = end
+				if shouldPass && outcome != nil {
+					panic(outcome)
+				} else if !shouldPass && outcome == nil {
+					panic(fmt.Errorf("Expected %s to fail, but it passed.", name))
+				}
+			default:
+				panic(fmt.Sprintf("Unknown client action: %v %v", parts, shouldPass))
+			}
+		}
+	}
+}
+
+func clientChannel(address string, script []string) error {
+	socket, err := tcp.Dial(address, rs.NewSetupPayload("", "", nil, nil))
+	if err != nil {
+		return err
+	}
+
+	pub := NewPuppetPublisher()
+	sub := NewPuppetSubscriber()
+	for _, line := range script {
+		parts := strings.Split(line, "%%")
+		switch parts[0] {
+		case "channel":
+			socket.RequestChannel(pub).Subscribe(sub)
+			pub.publish(rs.NewPayload([]byte(parts[2]), []byte(parts[1])))
+		default:
+			return fmt.Errorf("Unknown channel command: %v", parts)
+		}
+	}
+
+	return nil
 }
 
 func runServer(port int, path string) {
@@ -111,7 +202,7 @@ func runServer(port int, path string) {
 	}
 
 	address := ":" + strconv.Itoa(port)
-	server, err = tcp.NewServer(address, func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
+	server, err = tcp.Listen(address, func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
 		return handler, nil
 	})
 	if err != nil {

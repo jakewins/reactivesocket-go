@@ -85,29 +85,27 @@ func InitialRequestN(b []byte) uint32 {
 
 func Describe(b []byte) string {
 	var frameName string
-	var payloadOffset func() int
+	var payloadOffset = PayloadOffset
+	if header.Flags(b)&RequestFlagRequestChannelN != 0 {
+		payloadOffset = PayloadOffsetWithInitialN
+	}
+
 	switch header.FrameType(b) {
 	case header.FTRequestChannel:
 		frameName = "RequestChannel"
-		payloadOffset = PayloadOffsetWithInitialN
 		if header.Flags(b)&RequestFlagRequestChannelC != 0 {
 			frameName = "RequestChannel[Complete]"
 		}
 	case header.FTRequestSubscription:
 		frameName = "RequestSubscription"
-		payloadOffset = PayloadOffsetWithInitialN
 	case header.FTRequestStream:
 		frameName = "RequestStream"
-		payloadOffset = PayloadOffsetWithInitialN
 	case header.FTRequestResponse:
 		frameName = "RequestResponse"
-		payloadOffset = PayloadOffset
 	case header.FTFireAndForget:
 		frameName = "FireAndForget"
-		payloadOffset = PayloadOffset
 	case header.FTMetadataPush:
 		frameName = "MetadataPush"
-		payloadOffset = PayloadOffset
 	default:
 		panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
 	}

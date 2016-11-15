@@ -15,6 +15,7 @@ import (
 type scenario struct {
 	name      string
 	handler   *rs.RequestHandler
+	calls     []func(rs.ReactiveSocket)
 	exchanges []exchange
 }
 type exchange struct {
@@ -23,6 +24,7 @@ type exchange struct {
 }
 type in []*frame.Frame
 type out []*frame.Frame
+type calls []func(rs.ReactiveSocket)
 type exchanges []exchange
 
 var noopHandler = &rs.RequestHandler{}
@@ -30,7 +32,7 @@ var infinity uint32 = math.MaxUint32
 
 var scenarios = []scenario{
 	{
-		"Simple keepalive(response plz) -> keepalive", noopHandler, exchanges{
+		"Simple keepalive(response plz) -> keepalive", noopHandler, nil, exchanges{
 			exchange{
 				in{frame.Keepalive(true)},
 				out{frame.Keepalive(false)},
@@ -38,7 +40,7 @@ var scenarios = []scenario{
 		},
 	},
 	{
-		"Keepalive with no response", noopHandler, exchanges{
+		"Keepalive with no response", noopHandler, nil, exchanges{
 			exchange{
 				in{frame.Keepalive(false)},
 				out{},
@@ -48,7 +50,7 @@ var scenarios = []scenario{
 	{
 		"RequestChannel where server requests some values, no ending", &rs.RequestHandler{
 			HandleChannel: channelFactory(blackhole(2, 1000), sequencer(0, infinity)),
-		}, exchanges{
+		}, nil, exchanges{
 			exchange{
 				in{frame.Request(1337, 0, header.FTRequestChannel, nil, nil)},
 				out{frame.RequestN(1337, 1)}, // NOTE: First Payload is bundled in the request, so just 1 here
@@ -64,7 +66,7 @@ var scenarios = []scenario{
 	{
 		"RequestChannel where client requests some values, no ending", &rs.RequestHandler{
 			HandleChannel: channelFactory(wall, sequencer(0, infinity)),
-		}, exchanges{
+		}, nil, exchanges{
 			exchange{
 				in{frame.Request(1337, 0, header.FTRequestChannel, nil, nil),
 					frame.RequestN(1337, 2)},
@@ -77,7 +79,7 @@ var scenarios = []scenario{
 	{
 		"FireAndForget happy path", &rs.RequestHandler{
 			HandleFireAndForget: fireAndForgetSuccess,
-		}, exchanges{
+		}, nil, exchanges{
 			exchange{
 				in{frame.Request(1337, 0, header.FTFireAndForget, nil, nil)},
 				out{},
@@ -87,7 +89,7 @@ var scenarios = []scenario{
 	{
 		"RequestResponse happy path", &rs.RequestHandler{
 			HandleRequestResponse: requestResponseSuccess(1),
-		}, exchanges{
+		}, nil, exchanges{
 			exchange{
 				in{frame.Request(1337, 0, header.FTRequestResponse, nil, nil)},
 				out{frame.Response(1337, header.FlagResponseComplete, nil, []byte{0, 0, 0, 1})},
@@ -97,10 +99,35 @@ var scenarios = []scenario{
 	{
 		"MetaData push happy path", &rs.RequestHandler{
 			HandleMetadataPush: func(p rs.Payload) {},
-		}, exchanges{
+		}, nil, exchanges{
 			exchange{
 				in{frame.Request(1337, 0, header.FTMetadataPush, nil, nil)},
 				out{},
+			},
+		},
+	},
+
+	{
+		"Client RequestChannel push happy path", noopHandler,
+		calls{
+			callRequestChannel(blackhole(2, 1000), sequencer(0, infinity)),
+		},
+		exchanges{
+			exchange{
+				in{},
+				out{frame.RequestWithInitialN(0, 2, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 0})},
+			},
+			exchange{
+				in{
+					frame.Response(0, 0, nil, nil),
+					frame.Response(0, 0, nil, nil),
+					frame.RequestN(0, 2),
+				},
+				out{
+					frame.RequestN(0, 2),
+					frame.Request(0, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 1}),
+					frame.Request(0, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 2}),
+				},
 			},
 		},
 	},
@@ -110,6 +137,10 @@ func TestScenarios(t *testing.T) {
 	for _, scenario := range scenarios {
 		r := recorder{}
 		p := proto.NewProtocol(scenario.handler, r.Record)
+
+		for _, call := range scenario.calls {
+			call(p)
+		}
 
 		for _, exchange := range scenario.exchanges {
 			for _, f := range exchange.in {
@@ -147,7 +178,11 @@ func (r *recorder) AssertRecorded(expected []*frame.Frame) error {
 		}
 		found := r.recording[idx]
 		if !bytes.Equal(found.Buf, expect.Buf) {
-			return fmt.Errorf("Expected frame %d to be %s, found %s", idx, expect.Describe(), found.Describe())
+			return fmt.Errorf(
+				"Expected frame %d to be: %s\n"+
+					"Found frame           : %s\n"+
+					"Expected: % x\n"+
+					"Found:    % x", idx, expect.Describe(), found.Describe(), expect.Buf, found.Buf)
 		}
 	}
 	return nil
@@ -224,6 +259,12 @@ func wall(source rs.Publisher) {
 			// Dont react to inbound messages
 		}, nil, nil,
 	))
+}
+
+func callRequestChannel(in func(rs.Publisher), out func() rs.Publisher) func(rs.ReactiveSocket) {
+	return func(socket rs.ReactiveSocket) {
+		in(socket.RequestChannel(out()))
+	}
 }
 
 func channelFactory(in func(rs.Publisher), out func() rs.Publisher) func(rs.Publisher) rs.Publisher {

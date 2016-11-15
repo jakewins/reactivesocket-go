@@ -6,6 +6,12 @@ type Payload interface {
 }
 
 type ReactiveSocket interface {
+	//FireAndForget(Payload) Publisher
+	//RequestResponse(Payload) Publisher
+	RequestStream(Payload) Publisher
+	//RequestSubscription(Payload) Publisher
+	RequestChannel(Publisher) Publisher
+	//MetadataPush(Payload) Publisher
 }
 
 func NewPayload(metadata, data []byte) Payload {
@@ -37,4 +43,25 @@ func (ap *anonymousPayload) Metadata() []byte {
 }
 func (ap *anonymousPayload) Data() []byte {
 	return ap.data
+}
+
+func NewSetupPayload(metadataMimeType, dataMimeType string, metadata, data []byte) ConnectionSetupPayload {
+	return &anonymousSetupPayload{
+		anonymousPayload{metadata, data},
+		metadataMimeType,
+		dataMimeType,
+	}
+}
+
+type anonymousSetupPayload struct {
+	anonymousPayload
+	metadataMimeType string
+	dataMimeType     string
+}
+
+func (ap *anonymousSetupPayload) MetadataMimeType() string {
+	return ap.metadataMimeType
+}
+func (ap *anonymousSetupPayload) DataMimeType() string {
+	return ap.dataMimeType
 }
