@@ -13,7 +13,7 @@ func TestRequestWithInitialNLeadsToRequestN(t *testing.T) {
 	r := recorder{}
 	p := proto.NewProtocol(&rs.RequestHandler{
 		HandleChannel: channelFactory(wall, sequencer(1, 10)),
-	}, r.Record)
+	}, 0, r.Record)
 
 	p.HandleFrame(frame.RequestWithInitialN(1337, 2, request.RequestFlagRequestChannelN, header.FTRequestChannel, nil, nil))
 

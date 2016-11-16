@@ -32,7 +32,7 @@ type Protocol struct {
 	nextStreamId uint32
 }
 
-func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol {
+func NewProtocol(h *rs.RequestHandler, firstStreamId uint32, send func(*frame.Frame) error) *Protocol {
 	if h == nil {
 		panic("Cannot create protocol instance with a nil RequestHandler, please provice a non-nil handler.")
 	}
@@ -41,6 +41,7 @@ func NewProtocol(h *rs.RequestHandler, send func(*frame.Frame) error) *Protocol 
 		out:                &output{send: send, f: &frame.Frame{}},
 		localSubscribers:   make(map[uint32]rs.Subscriber),
 		localSubscriptions: make(map[uint32]rs.Subscription),
+		nextStreamId:       firstStreamId,
 	}
 }
 

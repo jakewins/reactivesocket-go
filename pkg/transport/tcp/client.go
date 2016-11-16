@@ -31,7 +31,7 @@ func Dial(address string, setup rs.ConnectionSetupPayload) (rs.ReactiveSocket, e
 		},
 	}
 
-	c.initialize()
+	c.initialize(1)
 	go c.serve()
 
 	return c.protocol, nil

@@ -74,7 +74,7 @@ func (s *server) Serve() error {
 			setup: s.setupConnection,
 		}
 		go func() {
-			c.initialize()
+			c.initialize(2)
 			c.serve()
 		}()
 	}
@@ -125,7 +125,7 @@ type reactiveConn struct {
 	dec      *frame.FrameDecoder
 }
 
-func (c *reactiveConn) initialize() {
+func (c *reactiveConn) initialize(firstStreamId uint32) {
 	// TODO This should wrap in buffered io
 	c.dec = frame.NewFrameDecoder(c.rwc)
 	c.enc = frame.NewFrameEncoder(c.rwc)
@@ -138,6 +138,7 @@ func (c *reactiveConn) initialize() {
 
 	c.protocol = proto.NewProtocol(
 		handler,
+		firstStreamId,
 		func(f *frame.Frame) error {
 			fmt.Printf("[C%d] -> %s\n", c.id, f.Describe())
 			return c.enc.Write(f)

@@ -30,6 +30,12 @@ type exchanges []exchange
 var noopHandler = &rs.RequestHandler{}
 var infinity uint32 = math.MaxUint32
 
+// This is a little DSL to write deterministic protocol exchange tests.
+// It works along the lines of
+//   Given I start ReactiveSocket with this handler
+//   and given I make these calls to it (like RequestChannel(..))
+//   then there should be the following series of behaviors,
+//   optional in response to inbound messages
 var scenarios = []scenario{
 	{
 		"Simple keepalive(response plz) -> keepalive", noopHandler, nil, exchanges{
@@ -108,25 +114,55 @@ var scenarios = []scenario{
 	},
 
 	{
-		"Client RequestChannel push happy path", noopHandler,
+		"Client RequestChannel happy path", noopHandler,
 		calls{
 			callRequestChannel(blackhole(2, 1000), sequencer(0, infinity)),
 		},
 		exchanges{
 			exchange{
 				in{},
-				out{frame.RequestWithInitialN(0, 2, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 0})},
+				out{frame.RequestWithInitialN(1, 2, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 0})},
 			},
 			exchange{
 				in{
-					frame.Response(0, 0, nil, nil),
-					frame.Response(0, 0, nil, nil),
-					frame.RequestN(0, 2),
+					frame.Response(1, 0, nil, nil),
+					frame.Response(1, 0, nil, nil),
+					frame.RequestN(1, 2),
 				},
 				out{
-					frame.RequestN(0, 2),
-					frame.Request(0, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 1}),
-					frame.Request(0, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 2}),
+					frame.RequestN(1, 2),
+					frame.Request(1, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 1}),
+					frame.Request(1, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 2}),
+				},
+			},
+		},
+	},
+
+	{
+		"Client RequestChannel cancel", noopHandler,
+		calls{
+			callRequestChannel(blackhole(2, 3), sequencer(0, infinity)),
+		},
+		exchanges{
+			exchange{
+				in{},
+				out{frame.RequestWithInitialN(1, 2, 0, header.FTRequestChannel, nil, []byte{0, 0, 0, 0})},
+			},
+			exchange{
+				in{
+					frame.Response(1, 0, nil, nil),
+					frame.Response(1, 0, nil, nil),
+				},
+				out{
+					frame.RequestN(1, 1),
+				},
+			},
+			exchange{
+				in{
+					frame.Response(1, 0, nil, nil),
+				},
+				out{
+					frame.Cancel(1),
 				},
 			},
 		},
@@ -136,7 +172,7 @@ var scenarios = []scenario{
 func TestScenarios(t *testing.T) {
 	for _, scenario := range scenarios {
 		r := recorder{}
-		p := proto.NewProtocol(scenario.handler, r.Record)
+		p := proto.NewProtocol(scenario.handler, 1, r.Record)
 
 		for _, call := range scenario.calls {
 			call(p)
