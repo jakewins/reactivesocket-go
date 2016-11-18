@@ -9,7 +9,6 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/response"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
-	"io"
 	"sync"
 	"sync/atomic"
 )
@@ -69,13 +68,15 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 		p.handleMetadataPush(f)
 	case header.FTError:
 		p.handleError(f)
+	case header.FTCancel:
+		p.handleCancel(f)
 	default:
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
 }
-func (p *Protocol) Terminate() {
+func (p *Protocol) Terminate(err error) {
 	for streamId, s := range p.localSubscribers {
-		s.OnError(io.EOF)
+		s.OnError(err)
 		delete(p.localSubscribers, streamId)
 	}
 	for streamId, s := range p.localSubscriptions {
@@ -172,6 +173,15 @@ func (p *Protocol) handleError(f *frame.Frame) {
 		return
 	}
 	s.OnError(fmt.Errorf("Error %d: %s", errorc.ErrorCode(f.Buf), string(f.Data())))
+}
+func (p *Protocol) handleCancel(f *frame.Frame) {
+	var s = p.localSubscriptions[f.StreamID()]
+	if s == nil {
+		// TODO: need to sort out protocol deal here
+		fmt.Printf("%s", f.Describe())
+		return
+	}
+	s.Cancel()
 }
 func (p *Protocol) handleMetadataPush(f *frame.Frame) {
 	p.Handler.HandleMetadataPush(f)

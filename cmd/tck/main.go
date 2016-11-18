@@ -125,6 +125,8 @@ func runClient(host string, port int, path string) {
 					panic(err)
 				}
 				subscriptions[parts[2]].request(n)
+			case "cancel":
+				subscriptions[parts[1]].cancel()
 			case "await":
 				switch parts[1] {
 				case "terminal":
@@ -135,6 +137,8 @@ func runClient(host string, port int, path string) {
 				case "no_error":
 					subscriptions[parts[2]].assertComplete()
 				}
+			case "EOF":
+				return
 			default:
 				panic(fmt.Sprintf("Unknown client action: %v %v", parts, shouldPass))
 			}
@@ -419,6 +423,9 @@ func (p *puppetSubscriber) OnComplete() {
 }
 func (p *puppetSubscriber) request(n int) {
 	p.subscription.Request(n)
+}
+func (p *puppetSubscriber) cancel() {
+	p.subscription.Cancel()
 }
 func (p *puppetSubscriber) awaitAtLeast(n int) error {
 	for {

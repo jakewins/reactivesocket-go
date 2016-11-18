@@ -152,11 +152,14 @@ func (c *reactiveConn) serve() {
 		if err := c.dec.Read(f); err != nil {
 			if err == io.EOF {
 				fmt.Printf("[C%d] <- EOF\n", c.id)
-				c.protocol.Terminate()
-				return
 			}
-			fmt.Println("Failed to read frame; also, programmer failed to write error handling")
-			panic(err) // TODO
+			if opErr, ok := err.(*net.OpError); ok {
+				if opErr.Err.Error() == "connection reset by peer" {
+					fmt.Printf("[C%d] <- Connection Reset\n", c.id)
+				}
+			}
+
+			c.protocol.Terminate(err)
 		}
 
 		fmt.Printf("[C%d] <- %s\n", c.id, f.Describe())
