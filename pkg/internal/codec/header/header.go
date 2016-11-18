@@ -2,7 +2,6 @@ package header
 
 import (
 	"encoding/binary"
-	"fmt"
 )
 
 // Common for all frames
@@ -83,28 +82,25 @@ func FrameType(b []byte) uint16 {
 func StreamID(b []byte) uint32 {
 	return Uint32(b, streamIdFieldOffset)
 }
-func DataOffset(buf []byte, payloadOffset func() int) int {
-	return payloadOffset() + MetadataFieldLength(buf, payloadOffset)
+func DataOffset(buf []byte, payloadOffset int) int {
+	return payloadOffset + MetadataFieldLength(buf, payloadOffset)
 }
-func MetadataFieldLength(buf []byte, payloadOffset func() int) int {
+func MetadataFieldLength(buf []byte, payloadOffset int) int {
 	if Flags(buf)&FlagHasMetadata == 0 {
 		return 0
 	}
 
-	fmt.Printf("Offset %v, %v\n", payloadOffset(), buf)
-	fmt.Printf("Len %v", int(Uint32(buf, payloadOffset())))
-
-	return int(Uint32(buf, payloadOffset()))
+	return int(Uint32(buf, payloadOffset))
 }
-func Metadata(buf []byte, payloadOffset func() int) []byte {
+func Metadata(buf []byte, payloadOffset int) []byte {
 	metadataLength := max(0, MetadataFieldLength(buf, payloadOffset)-SizeOfInt)
 	if 0 == metadataLength {
 		return nil
 	}
-	metadataOffset := payloadOffset() + SizeOfInt
+	metadataOffset := payloadOffset + SizeOfInt
 	return buf[metadataOffset : metadataOffset+metadataLength]
 }
-func Data(buf []byte, payloadOffset func() int) []byte {
+func Data(buf []byte, payloadOffset int) []byte {
 	dataLength := dataLength(buf, payloadOffset)
 	if 0 == dataLength {
 		return nil
@@ -114,14 +110,13 @@ func Data(buf []byte, payloadOffset func() int) []byte {
 	return buf[dataOffset : dataOffset+dataLength]
 }
 
-func dataLength(buf []byte, payloadOffset func() int) int {
+func dataLength(buf []byte, payloadOffset int) int {
 	frameLength := len(buf)
 	metadataLength := MetadataFieldLength(buf, payloadOffset)
-	return max(0, frameLength-metadataLength-payloadOffset())
+	return max(0, frameLength-metadataLength-payloadOffset)
 }
 
 func EncodeMetaDataAndData(buf, metadata, data []byte, offset int, flags uint16) {
-	fmt.Printf("%v %v", flags, flags&FlagHasMetadata)
 	if flags&FlagHasMetadata != 0 {
 		PutUint32(buf, offset, uint32(len(metadata)+SizeOfInt))
 		offset += SizeOfInt

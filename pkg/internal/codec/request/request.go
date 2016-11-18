@@ -84,7 +84,7 @@ func InitialRequestN(b []byte) uint32 {
 
 func Describe(b []byte) string {
 	var frameName string
-	var payloadOffset = func() int { return PayloadOffset(b); }
+	var payloadOffset = PayloadOffset(b)
 
 	switch header.FrameType(b) {
 	case header.FTRequestChannel:

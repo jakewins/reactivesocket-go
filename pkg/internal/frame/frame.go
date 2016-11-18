@@ -34,10 +34,10 @@ func (f *Frame) Flags() uint16 {
 	return header.Flags(f.Buf)
 }
 func (f *Frame) Data() []byte {
-	return header.Data(f.Buf, f.payloadOffset)
+	return header.Data(f.Buf, f.payloadOffset())
 }
 func (f *Frame) Metadata() []byte {
-	return header.Metadata(f.Buf, f.payloadOffset)
+	return header.Metadata(f.Buf, f.payloadOffset())
 }
 
 // Make a copy of this frame. If target is provided, it will be
@@ -114,7 +114,7 @@ func (f *Frame) payloadOffset() int {
 }
 
 func (f *Frame) metadataFieldLength() int {
-	return header.MetadataFieldLength(f.Buf, f.payloadOffset)
+	return header.MetadataFieldLength(f.Buf, f.payloadOffset())
 }
 
 // Message creation

@@ -21,9 +21,11 @@ func PayloadOffset() int {
 
 func Describe(buf []byte) string {
 	var frameName = "Response"
+	var payloadOffset = PayloadOffset()
 	if header.Flags(buf)&header.FlagResponseComplete != 0 {
 		frameName = "Response[Complete]"
 	}
 	return fmt.Sprintf("%s{streamId=%d, metadata=[% x], data=[% x]}",
-		frameName, header.StreamID(buf), header.Metadata(buf, PayloadOffset), header.Data(buf, PayloadOffset))
+		frameName, header.StreamID(buf), header.Metadata(buf, payloadOffset),
+		header.Data(buf, payloadOffset))
 }

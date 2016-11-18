@@ -50,6 +50,7 @@ func ErrorCode(buf []byte) uint32 {
 }
 
 func Describe(buf []byte) string {
+	var payloadOffset = PayloadOffset()
 	return fmt.Sprintf("Error{streamId=%d, errorCode=%d, metadata=[% x], data=[% x]}",
-		header.StreamID(buf), ErrorCode(buf), header.Metadata(buf, PayloadOffset), header.Data(buf, PayloadOffset))
+		header.StreamID(buf), ErrorCode(buf), header.Metadata(buf, payloadOffset), header.Data(buf, payloadOffset))
 }
