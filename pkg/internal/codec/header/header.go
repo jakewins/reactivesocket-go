@@ -2,6 +2,7 @@ package header
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 // Common for all frames
@@ -90,6 +91,9 @@ func MetadataFieldLength(buf []byte, payloadOffset func() int) int {
 		return 0
 	}
 
+	fmt.Printf("Offset %v, %v\n", payloadOffset(), buf)
+	fmt.Printf("Len %v", int(Uint32(buf, payloadOffset())))
+
 	return int(Uint32(buf, payloadOffset()))
 }
 func Metadata(buf []byte, payloadOffset func() int) []byte {
@@ -117,6 +121,7 @@ func dataLength(buf []byte, payloadOffset func() int) int {
 }
 
 func EncodeMetaDataAndData(buf, metadata, data []byte, offset int, flags uint16) {
+	fmt.Printf("%v %v", flags, flags&FlagHasMetadata)
 	if flags&FlagHasMetadata != 0 {
 		PutUint32(buf, offset, uint32(len(metadata)+SizeOfInt))
 		offset += SizeOfInt

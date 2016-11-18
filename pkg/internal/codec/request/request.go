@@ -53,12 +53,11 @@ func EncodeWithInitialN(bufPtr *[]byte, streamId, initialN uint32, flags, frameT
 	header.EncodeMetaDataAndData(buf, metadata, data, offset, flags)
 }
 
-func PayloadOffset() int {
-	return header.FrameHeaderLength
-}
-
-func PayloadOffsetWithInitialN() int {
-	return initialNFieldOffset + sizeOfInt
+func PayloadOffset(b []byte) int {
+	if header.Flags(b)&RequestFlagRequestChannelN == 0 {
+		return header.FrameHeaderLength
+	}
+	return header.FrameHeaderLength + sizeOfInt
 }
 
 func InitialRequestN(b []byte) uint32 {
@@ -85,10 +84,7 @@ func InitialRequestN(b []byte) uint32 {
 
 func Describe(b []byte) string {
 	var frameName string
-	var payloadOffset = PayloadOffset
-	if header.Flags(b)&RequestFlagRequestChannelN != 0 {
-		payloadOffset = PayloadOffsetWithInitialN
-	}
+	var payloadOffset = func() int { return PayloadOffset(b); }
 
 	switch header.FrameType(b) {
 	case header.FTRequestChannel:

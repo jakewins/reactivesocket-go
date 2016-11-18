@@ -87,17 +87,17 @@ func (f *Frame) payloadOffset() int {
 	case header.FTSetup:
 		return setup.PayloadOffset(f.Buf)
 	case header.FTFireAndForget:
-		return request.PayloadOffset()
+		return request.PayloadOffset(f.Buf)
 	case header.FTMetadataPush:
-		return request.PayloadOffset()
+		return request.PayloadOffset(f.Buf)
 	case header.FTRequestResponse:
-		return request.PayloadOffset()
+		return request.PayloadOffset(f.Buf)
 	case header.FTRequestChannel:
-		return request.PayloadOffsetWithInitialN()
+		return request.PayloadOffset(f.Buf)
 	case header.FTRequestStream:
-		return request.PayloadOffsetWithInitialN()
+		return request.PayloadOffset(f.Buf)
 	case header.FTRequestSubscription:
-		return request.PayloadOffsetWithInitialN()
+		return request.PayloadOffset(f.Buf)
 	case header.FTRequestN:
 		return requestn.PayloadOffset()
 	case header.FTResponse:

@@ -114,16 +114,14 @@ func clientChannel(address string, script []string) error {
 
 	pub := NewPuppetPublisher()
 	sub := NewPuppetSubscriber()
-	for _, line := range script {
-		parts := strings.Split(line, "%%")
-		switch parts[0] {
-		case "channel":
-			socket.RequestChannel(pub).Subscribe(sub)
-			pub.publish(rs.NewPayload([]byte(parts[2]), []byte(parts[1])))
-		default:
-			return fmt.Errorf("Unknown channel command: %v", parts)
-		}
-	}
+
+	first := strings.Split(script[0], "%%")
+
+	socket.RequestChannel(pub).Subscribe(sub)
+	sub.request(1)
+	pub.publish(rs.NewPayload([]byte(first[2]), []byte(first[1])))
+
+	runChannelScript("..", script[1:], sub, pub)
 
 	return nil
 }
@@ -262,6 +260,10 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 	key := fmt.Sprintf("%s:%s", string(init.Data()), string(init.Metadata()))
 	script := channels[string(init.Data())][string(init.Metadata())]
 
+	runChannelScript(key, script, in, out)
+}
+
+func runChannelScript(key string, script []string, in *puppetSubscriber, out *puppetPublisher) {
 	fmt.Printf("[%s] Starting worker\n", key)
 
 	var marbleWork = make(chan string, 2)
@@ -436,6 +438,7 @@ func (p *puppetPublisher) Subscribe(s rs.Subscriber) {
 	))
 }
 func (p *puppetPublisher) publish(v rs.Payload) {
+	fmt.Println("Waiting for request(1)")
 	for {
 		if atomic.LoadInt32(&p.requested) > 0 {
 			atomic.AddInt32(&p.requested, -1)
@@ -443,6 +446,7 @@ func (p *puppetPublisher) publish(v rs.Payload) {
 		}
 		time.Sleep(time.Millisecond * 5)
 	}
+	fmt.Println("Publishing!")
 	p.subscriber.OnNext(v)
 }
 func (p *puppetPublisher) complete() {
