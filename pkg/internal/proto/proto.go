@@ -81,6 +81,12 @@ func (p *Protocol) Terminate() {
 		delete(p.localSubscriptions, streamId)
 	}
 }
+
+func (p *Protocol) FireAndForget(initial rs.Payload) rs.Publisher {
+	streamId := p.generateStreamId()
+	p.out.sendRequest(streamId, header.FTFireAndForget, initial)
+	return rs.NewEmptyPublisher()
+}
 func (p *Protocol) RequestStream(initial rs.Payload) rs.Publisher {
 	streamId := p.generateStreamId()
 	initial = rs.CopyPayload(initial)

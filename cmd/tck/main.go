@@ -44,11 +44,6 @@ func main() {
 func runClient(host string, port int, path string) {
 	address := host + ":" + strconv.Itoa(port)
 
-	//socket, err := tcp.Dial(address, rs.NewSetupPayload("", "", nil, nil))
-	//if err != nil {
-	//	panic(err)
-	//}
-
 	fmt.Printf("[TCK] Client started, playing script against [%s]\n", address)
 	file, err := os.Open(path)
 	if err != nil {
@@ -71,6 +66,8 @@ func runClient(host string, port int, path string) {
 		}
 	}
 	scripts = append(scripts, current)
+
+	subscriptions := make(map[string]*puppetSubscriber)
 
 	for _, script := range scripts {
 		shouldPass := true
@@ -98,6 +95,36 @@ func runClient(host string, port int, path string) {
 					panic(outcome)
 				} else if !shouldPass && outcome == nil {
 					panic(fmt.Errorf("Expected %s to fail, but it passed.", name))
+				}
+			case "subscribe":
+				sub := NewPuppetSubscriber()
+				subscriptions[parts[2]] = sub
+				socket, err := tcp.Dial(address, rs.NewSetupPayload("", "", nil, nil))
+				payload := rs.NewPayload([]byte(parts[3]), []byte(parts[4]))
+				if err != nil {
+					panic(err)
+				}
+				switch parts[1] {
+				case "fnf":
+					socket.FireAndForget(payload).Subscribe(sub)
+				default:
+					panic(fmt.Sprintf("Unknown client action: %v %v", parts, shouldPass))
+				}
+			case "request":
+				n, err := strconv.Atoi(parts[1])
+				if err != nil {
+					panic(err)
+				}
+				subscriptions[parts[2]].request(n)
+			case "await":
+				switch parts[1] {
+				case "terminal":
+					subscriptions[parts[2]].awaitTerminal()
+				}
+			case "assert":
+				switch parts[1] {
+				case "no_error":
+					subscriptions[parts[2]].assertComplete()
 				}
 			default:
 				panic(fmt.Sprintf("Unknown client action: %v %v", parts, shouldPass))
@@ -438,7 +465,6 @@ func (p *puppetPublisher) Subscribe(s rs.Subscriber) {
 	))
 }
 func (p *puppetPublisher) publish(v rs.Payload) {
-	fmt.Println("Waiting for request(1)")
 	for {
 		if atomic.LoadInt32(&p.requested) > 0 {
 			atomic.AddInt32(&p.requested, -1)
@@ -446,7 +472,6 @@ func (p *puppetPublisher) publish(v rs.Payload) {
 		}
 		time.Sleep(time.Millisecond * 5)
 	}
-	fmt.Println("Publishing!")
 	p.subscriber.OnNext(v)
 }
 func (p *puppetPublisher) complete() {

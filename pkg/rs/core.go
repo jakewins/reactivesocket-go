@@ -6,7 +6,7 @@ type Payload interface {
 }
 
 type ReactiveSocket interface {
-	//FireAndForget(Payload) Publisher
+	FireAndForget(Payload) Publisher
 	//RequestResponse(Payload) Publisher
 	RequestStream(Payload) Publisher
 	//RequestSubscription(Payload) Publisher
