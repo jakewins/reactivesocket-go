@@ -150,9 +150,7 @@ func clientChannel(address string, script []string) error {
 	sub.request(1)
 	pub.publish(rs.NewPayload([]byte(first[2]), []byte(first[1])))
 
-	runChannelScript("..", script[1:], sub, pub)
-
-	return nil
+	return runChannelScript("..", script[1:], sub, pub)
 }
 
 func runServer(port int, path string) {
@@ -284,15 +282,18 @@ func channelWorker(channels map[string]map[string][]string, in *puppetSubscriber
 	in.request(1)
 	init, err := in.awaitNext()
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 	key := fmt.Sprintf("%s:%s", string(init.Data()), string(init.Metadata()))
 	script := channels[string(init.Data())][string(init.Metadata())]
 
-	runChannelScript(key, script, in, out)
+	err = runChannelScript(key, script, in, out)
+	if err != nil {
+		panic(err)
+	}
 }
 
-func runChannelScript(key string, script []string, in *puppetSubscriber, out *puppetPublisher) {
+func runChannelScript(key string, script []string, in *puppetSubscriber, out *puppetPublisher) error {
 	fmt.Printf("[%s] Starting worker\n", key)
 
 	var marbleWork = make(chan string, 2)
@@ -310,26 +311,28 @@ func runChannelScript(key string, script []string, in *puppetSubscriber, out *pu
 			switch args[1] {
 			case "atLeast":
 				if err := in.awaitAtLeast(parseInt(args[3])); err != nil {
-					panic(fmt.Sprintf("[%s] %s", key, err.Error()))
+					return fmt.Errorf("[%s] %s", key, err.Error())
 				}
 			case "terminal":
 				if err := in.awaitTerminal(); err != nil {
-					panic(fmt.Sprintf("[%s] %s", key, err.Error()))
+					return fmt.Errorf("[%s] %s", key, err.Error())
 				}
 			default:
-				panic(fmt.Sprintf("[%s] Unknown TCK command for channel: %v", key, args))
+				return fmt.Errorf("[%s] Unknown TCK command for channel: %v", key, args)
 			}
 		case "assert":
 			switch args[1] {
 			case "completed":
 				if err := in.assertComplete(); err != nil {
-					panic(err.Error())
+					return fmt.Errorf("[%s] %s", key, err.Error())
 				}
 			}
 		default:
-			panic(fmt.Sprintf("[%s] Unknown TCK command for channel: %v", key, args))
+			return fmt.Errorf("[%s] Unknown TCK command for channel: %v", key, args)
 		}
 	}
+
+	return nil
 }
 
 func marbleWorker(work chan string, out *puppetPublisher) {
