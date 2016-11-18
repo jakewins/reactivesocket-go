@@ -75,6 +75,7 @@ func runClient(host string, port int, path string) {
 		for i := 0; i < len(script); i++ {
 			line := script[i]
 			parts := strings.Split(line, "%%")
+			fmt.Printf("% v\n", parts)
 			switch parts[0] {
 			case "name":
 				name = parts[1]
@@ -109,6 +110,12 @@ func runClient(host string, port int, path string) {
 				switch parts[1] {
 				case "fnf":
 					socket.FireAndForget(payload).Subscribe(sub)
+				case "sub":
+					socket.RequestSubscription(payload).Subscribe(sub)
+				case "rs":
+					socket.RequestStream(payload).Subscribe(sub)
+				case "rr":
+					socket.RequestResponse(payload).Subscribe(sub)
 				default:
 					panic(fmt.Sprintf("Unknown client action: %v %v", parts, shouldPass))
 				}

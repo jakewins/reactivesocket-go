@@ -97,6 +97,22 @@ func (p *Protocol) RequestStream(initial rs.Payload) rs.Publisher {
 		return 0
 	})
 }
+func (p *Protocol) RequestSubscription(initial rs.Payload) rs.Publisher {
+	streamId := p.generateStreamId()
+	initial = rs.CopyPayload(initial)
+	return p.createPublisherForRemoteStream(streamId, func(n int, sub rs.Subscriber) int {
+		p.out.sendRequestWithInitialN(streamId, uint32(n), header.FTRequestSubscription, initial)
+		return 0
+	})
+}
+func (p *Protocol) RequestResponse(initial rs.Payload) rs.Publisher {
+	streamId := p.generateStreamId()
+	initial = rs.CopyPayload(initial)
+	return p.createPublisherForRemoteStream(streamId, func(n int, sub rs.Subscriber) int {
+		p.out.sendRequest(streamId, header.FTRequestResponse, initial)
+		return 0
+	})
+}
 func (p *Protocol) RequestChannel(payloads rs.Publisher) rs.Publisher {
 	streamId := p.generateStreamId()
 	return p.createPublisherForRemoteStream(streamId, func(n int, sub rs.Subscriber) int {
