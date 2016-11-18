@@ -67,6 +67,8 @@ func (p *Protocol) HandleFrame(f *frame.Frame) {
 		p.handleRequestStream(f, p.Handler.HandleRequestStream(f))
 	case header.FTMetadataPush:
 		p.handleMetadataPush(f)
+	case header.FTError:
+		p.handleError(f)
 	default:
 		panic(fmt.Sprintf("Unknown frame: %s", f.Describe()))
 	}
@@ -145,6 +147,15 @@ func (p *Protocol) handleRequestN(f *frame.Frame) {
 		return
 	}
 	s.Request(int(requestn.RequestN(f)))
+}
+func (p *Protocol) handleError(f *frame.Frame) {
+	var s = p.localSubscribers[f.StreamID()]
+	if s == nil {
+		// TODO: need to sort out protocol deal here
+		fmt.Printf("%s", f.Describe())
+		return
+	}
+	s.OnError(fmt.Errorf("Error %d: %s", errorc.ErrorCode(f.Buf), string(f.Data())))
 }
 func (p *Protocol) handleMetadataPush(f *frame.Frame) {
 	p.Handler.HandleMetadataPush(f)
@@ -290,7 +301,7 @@ func (s *requesterRemoteSubscriber) OnError(err error) {
 	delete(s.localSubscriptions, s.streamId)
 }
 func (s *requesterRemoteSubscriber) OnComplete() {
-	//s.out.sendResponseComplete(s.streamId)
+	s.out.sendRequestComplete(s.streamId)
 	delete(s.localSubscriptions, s.streamId)
 }
 
@@ -366,6 +377,14 @@ func (out *output) sendRequest(streamId uint32, frameType uint16, val rs.Payload
 	out.lock.Lock()
 	defer out.lock.Unlock()
 	if err := out.send(frame.EncodeRequest(out.f, streamId, 0, frameType, val.Metadata(), val.Data())); err != nil {
+		panic(err.Error()) // TODO
+	}
+}
+func (out *output) sendRequestComplete(streamId uint32) {
+	out.lock.Lock()
+	defer out.lock.Unlock()
+	if err := out.send(frame.EncodeRequest(out.f, streamId, header.FlagRequestChannelComplete,
+		header.FTRequestChannel, nil, nil)); err != nil {
 		panic(err.Error()) // TODO
 	}
 }

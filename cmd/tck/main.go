@@ -81,6 +81,8 @@ func runClient(host string, port int, path string) {
 				fmt.Printf("[TCK] Starting %s\n", name)
 			case "pass":
 				shouldPass = true
+			case "fail":
+				shouldPass = false
 			case "channel":
 				end := i
 				for ; end < len(script); end++ {
