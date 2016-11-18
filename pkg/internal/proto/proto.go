@@ -7,6 +7,7 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/request"
 	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/requestn"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/frame/response"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"io"
 	"sync"
@@ -124,7 +125,12 @@ func (p *Protocol) handleResponse(f *frame.Frame) {
 		// TODO: need to sort out protocol deal here
 		return
 	}
-	s.OnNext(f)
+	if response.IsCompleteStream(f) {
+		s.OnComplete()
+		delete(p.localSubscribers, f.StreamID())
+	} else {
+		s.OnNext(f)
+	}
 }
 func (p *Protocol) handleRequestN(f *frame.Frame) {
 	var s = p.localSubscriptions[f.StreamID()]
@@ -183,7 +189,7 @@ func (p *Protocol) handleRequestChannel(f *frame.Frame) {
 		return
 	}
 
-	if request.IsCompleteChannel(f) {
+	if request.IsCompleteStream(f) {
 		subscriber.OnComplete()
 		delete(p.localSubscribers, streamId)
 	} else {

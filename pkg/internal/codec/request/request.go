@@ -6,11 +6,6 @@ import (
 )
 
 const (
-	RequestFlagRequestChannelC = 1 << 12
-	RequestFlagRequestChannelN = 1 << 11
-)
-
-const (
 	sizeOfInt           = header.SizeOfInt
 	initialNFieldOffset = header.FrameHeaderLength
 )
@@ -41,7 +36,7 @@ func EncodeWithInitialN(bufPtr *[]byte, streamId, initialN uint32, flags, frameT
 	if len(metadata) > 0 {
 		flags |= header.FlagHasMetadata
 	}
-	flags |= RequestFlagRequestChannelN
+	flags |= header.FlagRequestChannelInitialN
 
 	header.EncodeHeader(buf, flags, frameType, streamId)
 
@@ -54,7 +49,7 @@ func EncodeWithInitialN(bufPtr *[]byte, streamId, initialN uint32, flags, frameT
 }
 
 func PayloadOffset(b []byte) int {
-	if header.Flags(b)&RequestFlagRequestChannelN == 0 {
+	if header.Flags(b)&header.FlagRequestChannelInitialN == 0 {
 		return header.FrameHeaderLength
 	}
 	return header.FrameHeaderLength + sizeOfInt
@@ -76,7 +71,7 @@ func InitialRequestN(b []byte) uint32 {
 		panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
 	}
 
-	if header.Flags(b)&RequestFlagRequestChannelN == 0 {
+	if header.Flags(b)&header.FlagRequestChannelInitialN == 0 {
 		return 0
 	}
 	return header.Uint32(b, initialNFieldOffset)
@@ -89,7 +84,7 @@ func Describe(b []byte) string {
 	switch header.FrameType(b) {
 	case header.FTRequestChannel:
 		frameName = "RequestChannel"
-		if header.Flags(b)&RequestFlagRequestChannelC != 0 {
+		if header.Flags(b)&header.FlagRequestChannelComplete != 0 {
 			frameName = "RequestChannel[Complete]"
 		}
 	case header.FTRequestSubscription:
@@ -106,7 +101,12 @@ func Describe(b []byte) string {
 		panic(fmt.Sprintf("Expected a request frame, got %d", header.FrameType(b)))
 	}
 
-	return fmt.Sprintf("%s{streamId=%d, initialRequestN=%d, metadata=[% x], data=[% x]}",
-		frameName, header.StreamID(b), InitialRequestN(b),
+	var initialN = ""
+	if header.Flags(b)&header.FlagRequestChannelInitialN != 0 {
+		initialN = fmt.Sprintf(" initialRequestN=%d,", InitialRequestN(b))
+	}
+
+	return fmt.Sprintf("%s{streamId=%d,%s metadata=[% x], data=[% x]}",
+		frameName, header.StreamID(b), initialN,
 		header.Metadata(b, payloadOffset), header.Data(b, payloadOffset))
 }

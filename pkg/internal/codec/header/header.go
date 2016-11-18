@@ -17,9 +17,11 @@ const (
 )
 
 const (
-	FlagHasMetadata      uint16 = 1 << 14
-	FlagKeepaliveRespond        = 1 << 13
-	FlagResponseComplete        = 1 << 12
+	FlagHasMetadata            uint16 = 1 << 14
+	FlagKeepaliveRespond              = 1 << 13
+	FlagResponseComplete              = 1 << 12
+	FlagRequestChannelComplete        = 1 << 12
+	FlagRequestChannelInitialN        = 1 << 11
 )
 
 const (
