@@ -1,0 +1,5 @@
+- keepalive frames
+- nice errors on missing handlers
+- clean error handling on conn errors
+- clean error handling on parse errors
+- provide handlers for client Dial

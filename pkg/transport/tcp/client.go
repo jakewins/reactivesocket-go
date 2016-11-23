@@ -1,7 +1,7 @@
 package tcp
 
 import (
-	"github.com/jakewins/reactivesocket-go/pkg/internal/frame"
+	"github.com/jakewins/reactivesocket-go/pkg/internal/trans"
 	"github.com/jakewins/reactivesocket-go/pkg/rs"
 	"net"
 )
@@ -16,23 +16,20 @@ func Dial(address string, setup rs.ConnectionSetupPayload) (rs.ReactiveSocket, e
 		return nil, err
 	}
 
-	c := &reactiveConn{
-		id:  0,
-		rwc: rwc,
-		setup: func(c *reactiveConn) (*rs.RequestHandler, error) {
-			f := &c.frame
-			if err := c.enc.Write(frame.EncodeSetup(f, 0, 1000, 0,
-				setup.MetadataMimeType(), setup.DataMimeType(),
-				setup.Metadata(), setup.Data())); err != nil {
-				c.fatalError(err)
+	c := &trans.ReactiveConn{
+		Id:  0,
+		Rwc: rwc,
+		Setup: func(c *trans.ReactiveConn) (*rs.RequestHandler, error) {
+			if err := c.WriteSetupFrame(1000, 0, setup); err != nil {
+				return nil, err
 			}
 
 			return &rs.RequestHandler{}, nil
 		},
 	}
 
-	c.initialize(1)
-	go c.serve()
+	c.Initialize(1)
+	go c.Serve()
 
-	return c.protocol, nil
+	return c.Protocol, nil
 }

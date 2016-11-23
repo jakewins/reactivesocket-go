@@ -280,7 +280,7 @@ func (r *subscriptionToRemoteStream) Cancel() {
 }
 
 // Represents the remote subscriber - sending messages to this will have them delivered over
-// the transport.
+// the trans.
 type responderRemoteSubscriber struct {
 	streamId           uint32
 	localSubscriptions map[uint32]rs.Subscription
