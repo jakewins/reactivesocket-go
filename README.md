@@ -2,15 +2,17 @@
 
 This is a client and server implementation of the [ReactiveSocket Protocol](http://reactivesocket.io/).
 
-It currently supports the TCP transport.
+It currently supports the TCP and Websocket transports.
 
 The project is alpha-level - all major functionality is in place, the project passes every test in the Reactive Socket TCK.
 However, the API is not stable and there are likely many edge cases and bugs remaining.
 
 ## Examples
 
-- [Connect to a TCP server](pkg/transport/tcp/example_test.go#L9)
-- [Start a TCP server](pkg/transport/tcp/example_test.go#L28)
+- [TCP Client](pkg/transport/tcp/example_test.go#L9)
+- [TCP Server](pkg/transport/tcp/example_test.go#L28)
+- [Websocket Client](pkg/transport/ws/example_test.go#L9)
+- [Websocket Server](pkg/transport/ws/example_test.go#L28)
 
 ## Contributing
 
