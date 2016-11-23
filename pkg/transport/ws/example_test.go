@@ -6,6 +6,25 @@ import (
 	"github.com/jakewins/reactivesocket-go/pkg/transport/ws"
 )
 
+func ExampleClient() {
+	socket, err := ws.Dial("localhost:5678", rs.NewSetupPayload("text/json", "text/json", nil, nil))
+
+	if err != nil {
+		panic(err)
+	}
+
+	stream := socket.RequestSubscription(rs.NewPayload([]byte{1, 2, 3}, []byte{4, 5, 5}))
+	stream.Subscribe(rs.NewSubscriber(func(s rs.Subscription) {
+		s.Request(100)
+	}, func(next rs.Payload) {
+		// Handle payload
+	}, func(err error) {
+		// Handle errors..
+	}, func() {
+		// On complete
+	}))
+}
+
 func ExampleServer() {
 	server, err := ws.Listen(":0", func(setup rs.ConnectionSetupPayload, socket rs.ReactiveSocket) (*rs.RequestHandler, error) {
 		// Choose a request handler based on the setup payload. Each connection has its own handler.
